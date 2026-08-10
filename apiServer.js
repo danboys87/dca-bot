@@ -83,7 +83,12 @@ async function handle(req, res) {
   }
 
   if (route === '/api/history' && method === 'GET') {
-    json(res, { ok: true, deals: getClosedDeals(100) });
+    // ?limit= opsional — default 200, dinaikkan dari 100 supaya perhitungan
+    // PnL Harian di dashboard tidak kepotong kalau history sudah panjang.
+    // Dibatasi max 2000 biar tidak berat kalau ada yang iseng minta limit gede.
+    const requested = parseInt(url.searchParams.get('limit') || '200');
+    const limit = Math.min(Math.max(requested || 200, 1), 2000);
+    json(res, { ok: true, deals: getClosedDeals(limit) });
     return;
   }
 

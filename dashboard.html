@@ -21,7 +21,7 @@ input,select{font-family:var(--mono);font-size:12px;border:1px solid var(--borde
 .btn.primary{background:var(--text);color:#fff;border-color:var(--text)}
 .btn.success{background:var(--green);color:#fff;border-color:var(--green)}
 .btn.danger{background:var(--red);color:#fff;border-color:var(--red)}
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
 .stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px}
 .stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
 .stat-value{font-family:var(--mono);font-size:19px}
@@ -32,10 +32,13 @@ table{width:100%;border-collapse:collapse}
 th{text-align:left;padding:8px 12px;font-size:10px;font-weight:600;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);background:var(--bg)}
 td{padding:9px 12px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:12px}
 tr:last-child td{border-bottom:none}
+tr.today td{background:var(--yellow-bg)}
 .empty{padding:30px;text-align:center;color:var(--muted);font-family:var(--mono);font-size:12px}
 .config-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px}
 .field{display:flex;flex-direction:column;gap:4px}
 .field label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.dirty-badge{font-family:var(--mono);font-size:10px;font-weight:500;padding:3px 8px;border-radius:3px;background:var(--yellow-bg);color:var(--yellow);display:none}
+.winrate{font-size:11px;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -53,6 +56,7 @@ tr:last-child td{border-bottom:none}
 
 <div class="stats">
   <div class="stat"><div class="stat-label">Total PnL</div><div class="stat-value" id="st-pnl">—</div></div>
+  <div class="stat"><div class="stat-label">PnL Hari Ini</div><div class="stat-value" id="st-pnl-today">—</div></div>
   <div class="stat"><div class="stat-label">Deal Aktif</div><div class="stat-value" id="st-active">—</div></div>
   <div class="stat"><div class="stat-label">Closed</div><div class="stat-value" id="st-closed">—</div></div>
   <div class="stat"><div class="stat-label">Base / Safety Order</div><div class="stat-value" id="st-order" style="font-size:14px">—</div></div>
@@ -73,6 +77,25 @@ tr:last-child td{border-bottom:none}
 </div>
 
 <div class="panel">
+  <div class="panel-header">
+    <span>📅 PnL Harian</span>
+    <span style="display:flex;gap:6px;align-items:center">
+      <select id="dailyRange" onchange="renderDailyFromCache()" style="width:120px">
+        <option value="14">14 hari</option>
+        <option value="30" selected>30 hari</option>
+        <option value="90">90 hari</option>
+        <option value="99999">Semua</option>
+      </select>
+      <button class="btn" onclick="loadHistory()">↻ Refresh</button>
+    </span>
+  </div>
+  <table>
+    <thead><tr><th>Tanggal</th><th>Deal Ditutup</th><th>Win Rate</th><th>PnL (USDT)</th></tr></thead>
+    <tbody id="daily-body"><tr><td colspan="4" class="empty">—</td></tr></tbody>
+  </table>
+</div>
+
+<div class="panel">
   <div class="panel-header"><span>≡ Deal History</span><button class="btn" onclick="loadHistory()">↻ Refresh</button></div>
   <table>
     <thead><tr><th>Symbol</th><th>Avg Entry</th><th>Exit</th><th>PnL %</th><th>PnL USDT</th><th>SO Terpakai</th><th>Reason</th><th>Closed</th></tr></thead>
@@ -81,7 +104,13 @@ tr:last-child td{border-bottom:none}
 </div>
 
 <div class="panel">
-  <div class="panel-header"><span>⚙ Config DCA</span><button class="btn primary" onclick="saveConfig()">Save</button></div>
+  <div class="panel-header">
+    <span>⚙ Config DCA</span>
+    <span style="display:flex;align-items:center;gap:8px">
+      <span class="dirty-badge" id="dirtyBadge">● belum disimpan</span>
+      <button class="btn primary" onclick="saveConfig()">Save</button>
+    </span>
+  </div>
   <div class="config-grid" id="config-grid"><div class="empty" style="grid-column:1/-1">Loading...</div></div>
 </div>
 
@@ -89,6 +118,9 @@ tr:last-child td{border-bottom:none}
 
 <script>
 let API = localStorage.getItem('dca_api_url') || 'http://localhost:3001';
+let configDirty = false;     // true selama user sedang mengedit form Config & belum klik Save
+let _historyCache = [];      // simpan hasil /api/history terakhir, dipakai ulang oleh tabel Daily PnL
+
 document.addEventListener('DOMContentLoaded', () => { document.getElementById('apiUrl').value = API; connect(); });
 
 function connect() {
@@ -97,6 +129,7 @@ function connect() {
   refreshAll();
   loadHistory();
   setInterval(refreshAll, 10000);
+  setInterval(loadHistory, 60000); // history + PnL harian cukup di-refresh tiap 1 menit
 }
 
 async function apiFetch(path, opts = {}) {
@@ -120,7 +153,11 @@ async function refreshAll() {
     document.getElementById('st-closed').textContent = d.stats.closedCount;
     document.getElementById('st-order').textContent = d.config.dca.baseOrderSize + ' / ' + d.config.dca.safetyOrderSize + ' USDT';
     renderDeals(d.deals);
-    renderConfig(d.config);
+
+    // Jangan timpa form Config kalau user sedang mengetik/belum Save.
+    if (!configDirty) {
+      renderConfig(d.config);
+    }
   } catch(e) { document.getElementById('deals-body').innerHTML = '<tr><td colspan="10" class="empty">Gagal connect ke ' + API + '</td></tr>'; }
 }
 
@@ -150,10 +187,21 @@ function renderDeals(deals) {
   }).join('');
 }
 
+// ── Deal History + PnL Harian ────────────────────────────────────────────────
+// Keduanya dihitung dari sumber data yang sama (/api/history), supaya tidak
+// perlu request terpisah ke server.
+
 async function loadHistory() {
-  const res = await apiFetch('/api/history');
+  const res = await apiFetch('/api/history?limit=1000');
   const tbody = document.getElementById('history-body');
-  if (!res.ok || !res.deals?.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty">Belum ada history</td></tr>'; return; }
+  if (!res.ok || !res.deals?.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="empty">Belum ada history</td></tr>';
+    _historyCache = [];
+    renderDailyFromCache();
+    return;
+  }
+  _historyCache = res.deals;
+
   tbody.innerHTML = res.deals.map(d => {
     const sign = d.pnlPct >= 0 ? '+' : '';
     const cls  = d.pnlPct >= 0 ? 'green' : 'red';
@@ -163,6 +211,65 @@ async function loadHistory() {
       <td style="color:var(--${cls})">${sign}${d.pnlUsdt.toFixed(2)} USDT</td>
       <td>${d.safetyOrdersFilled}</td><td>${d.reason}</td>
       <td style="font-size:10px">${new Date(d.closedAt).toLocaleString('id-ID')}</td>
+    </tr>`;
+  }).join('');
+
+  renderDailyFromCache();
+}
+
+// Kelompokkan closed deals per tanggal (waktu lokal browser), hitung total PnL,
+// jumlah deal, dan win rate tiap hari.
+function computeDailyPnl(deals) {
+  const map = {}; // 'YYYY-MM-DD' -> { pnlUsdt, count, wins }
+  for (const d of deals) {
+    const dt  = new Date(d.closedAt);
+    const key = dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
+    if (!map[key]) map[key] = { pnlUsdt: 0, count: 0, wins: 0 };
+    map[key].pnlUsdt += d.pnlUsdt;
+    map[key].count   += 1;
+    if (d.pnlUsdt >= 0) map[key].wins += 1;
+  }
+  return map;
+}
+
+function todayKey() {
+  const dt = new Date();
+  return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
+}
+
+function formatDayLabel(key) {
+  const [y, m, d] = key.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  const label = dt.toLocaleDateString('id-ID', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
+  return key === todayKey() ? `${label} (hari ini)` : label;
+}
+
+function renderDailyFromCache() {
+  const rangeDays = parseInt(document.getElementById('dailyRange')?.value || '30');
+  const dailyMap  = computeDailyPnl(_historyCache);
+  const keys      = Object.keys(dailyMap).sort().reverse().slice(0, rangeDays);
+
+  // Update kartu "PnL Hari Ini"
+  const today = dailyMap[todayKey()];
+  const todayPnl = today ? today.pnlUsdt : 0;
+  const stToday = document.getElementById('st-pnl-today');
+  stToday.textContent = (todayPnl >= 0 ? '+' : '') + todayPnl.toFixed(2) + ' USDT';
+  stToday.className = 'stat-value ' + (todayPnl >= 0 ? 'green' : 'red');
+
+  const tbody = document.getElementById('daily-body');
+  if (!keys.length) { tbody.innerHTML = '<tr><td colspan="4" class="empty">Belum ada deal yang closed</td></tr>'; return; }
+
+  tbody.innerHTML = keys.map(key => {
+    const row  = dailyMap[key];
+    const sign = row.pnlUsdt >= 0 ? '+' : '';
+    const cls  = row.pnlUsdt >= 0 ? 'green' : 'red';
+    const winRate = row.count ? Math.round((row.wins / row.count) * 100) : 0;
+    const isToday = key === todayKey();
+    return `<tr class="${isToday ? 'today' : ''}">
+      <td>${formatDayLabel(key)}</td>
+      <td>${row.count}</td>
+      <td>${row.wins}/${row.count} <span class="winrate">(${winRate}%)</span></td>
+      <td style="color:var(--${cls})">${sign}${row.pnlUsdt.toFixed(2)} USDT</td>
     </tr>`;
   }).join('');
 }
@@ -186,6 +293,14 @@ function renderConfig(cfg) {
     <div class="field"><label>Auto Reopen Setelah TP</label><select id="cfg-reopen"><option value="true" ${t.reopenAfterClose?'selected':''}>ON</option><option value="false" ${!t.reopenAfterClose?'selected':''}>OFF</option></select></div>
     <div class="field"><label>Cooldown Reopen (menit)</label><input id="cfg-cooldown" type="number" value="${t.cooldownAfterCloseMin ?? 5}"></div>
   `;
+
+  const grid = document.getElementById('config-grid');
+  const markDirty = () => {
+    configDirty = true;
+    document.getElementById('dirtyBadge').style.display = 'inline-block';
+  };
+  grid.oninput  = markDirty;
+  grid.onchange = markDirty;
 }
 
 async function saveConfig() {
@@ -212,7 +327,11 @@ async function saveConfig() {
   };
   const res = await apiPost('/api/config', updates);
   alert(res.ok ? '✅ Config tersimpan (berlaku utk deal baru)' : '❌ ' + res.error);
-  if (res.ok) refreshAll();
+  if (res.ok) {
+    configDirty = false;
+    document.getElementById('dirtyBadge').style.display = 'none';
+    refreshAll();
+  }
 }
 
 async function doStart() {
