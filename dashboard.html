@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DCA Bot — Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f5f4f0;--surface:#fff;--border:#e2e0d8;--text:#1a1916;--muted:#7a7568;--green:#1a7a4a;--green-bg:#edf7f1;--red:#c0392b;--red-bg:#fdf0ee;--yellow:#b07d20;--yellow-bg:#fdf6e3;--mono:'DM Mono',monospace;--sans:'DM Sans',sans-serif;--radius:6px;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:13px;line-height:1.5}
+.wrap{max-width:1100px;margin:0 auto;padding:20px}
+header{display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+header h1{font-family:var(--mono);font-size:15px;font-weight:500}
+.badge{font-family:var(--mono);font-size:11px;font-weight:500;padding:3px 8px;border-radius:3px}
+.badge.green{background:var(--green-bg);color:var(--green)}
+.badge.gray{background:var(--bg);color:var(--muted);border:1px solid var(--border)}
+.top-right{margin-left:auto;display:flex;gap:8px;align-items:center}
+input,select{font-family:var(--mono);font-size:12px;border:1px solid var(--border);border-radius:var(--radius);padding:6px 9px;background:var(--bg);color:var(--text);outline:none}
+.btn{font-family:var(--sans);font-size:12px;font-weight:500;padding:6px 13px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);cursor:pointer}
+.btn.primary{background:var(--text);color:#fff;border-color:var(--text)}
+.btn.success{background:var(--green);color:#fff;border-color:var(--green)}
+.btn.danger{background:var(--red);color:#fff;border-color:var(--red)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px}
+.stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+.stat-value{font-family:var(--mono);font-size:19px}
+.stat-value.green{color:var(--green)} .stat-value.red{color:var(--red)}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:16px;overflow:hidden}
+.panel-header{padding:10px 14px;border-bottom:1px solid var(--border);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);display:flex;justify-content:space-between;align-items:center}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;padding:8px 12px;font-size:10px;font-weight:600;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);background:var(--bg)}
+td{padding:9px 12px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:12px}
+tr:last-child td{border-bottom:none}
+.empty{padding:30px;text-align:center;color:var(--muted);font-family:var(--mono);font-size:12px}
+.config-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>▣ DCA BOT</h1>
+  <span class="badge gray" id="modeLabel">—</span>
+  <span class="badge gray" id="reopenLabel">—</span>
+  <div class="top-right">
+    <input id="apiUrl" style="width:210px" value="http://localhost:3001" placeholder="http://localhost:3001">
+    <button class="btn primary" onclick="connect()">Connect</button>
+    <button class="btn" onclick="refreshAll()">↻</button>
+  </div>
+</header>
+
+<div class="stats">
+  <div class="stat"><div class="stat-label">Total PnL</div><div class="stat-value" id="st-pnl">—</div></div>
+  <div class="stat"><div class="stat-label">Deal Aktif</div><div class="stat-value" id="st-active">—</div></div>
+  <div class="stat"><div class="stat-label">Closed</div><div class="stat-value" id="st-closed">—</div></div>
+  <div class="stat"><div class="stat-label">Base / Safety Order</div><div class="stat-value" id="st-order" style="font-size:14px">—</div></div>
+</div>
+
+<div class="panel">
+  <div class="panel-header">
+    <span>📂 Deal Aktif</span>
+    <span style="display:flex;gap:6px">
+      <input id="startSymbol" placeholder="BTCUSDT" style="width:110px;text-transform:uppercase">
+      <button class="btn success" onclick="doStart()">+ Buka Deal</button>
+    </span>
+  </div>
+  <table>
+    <thead><tr><th>Symbol</th><th>Avg Entry</th><th>Now</th><th>PnL %</th><th>PnL USDT</th><th>SO</th><th>Next SO</th><th>TP</th><th>SL</th><th>Action</th></tr></thead>
+    <tbody id="deals-body"><tr><td colspan="10" class="empty">Belum connect</td></tr></tbody>
+  </table>
+</div>
+
+<div class="panel">
+  <div class="panel-header"><span>≡ Deal History</span><button class="btn" onclick="loadHistory()">↻ Refresh</button></div>
+  <table>
+    <thead><tr><th>Symbol</th><th>Avg Entry</th><th>Exit</th><th>PnL %</th><th>PnL USDT</th><th>SO Terpakai</th><th>Reason</th><th>Closed</th></tr></thead>
+    <tbody id="history-body"><tr><td colspan="8" class="empty">—</td></tr></tbody>
+  </table>
+</div>
+
+<div class="panel">
+  <div class="panel-header"><span>⚙ Config DCA</span><button class="btn primary" onclick="saveConfig()">Save</button></div>
+  <div class="config-grid" id="config-grid"><div class="empty" style="grid-column:1/-1">Loading...</div></div>
+</div>
+
+</div>
+
+<script>
+let API = localStorage.getItem('dca_api_url') || 'http://localhost:3001';
+document.addEventListener('DOMContentLoaded', () => { document.getElementById('apiUrl').value = API; connect(); });
+
+function connect() {
+  API = document.getElementById('apiUrl').value.replace(/\/$/, '');
+  localStorage.setItem('dca_api_url', API);
+  refreshAll();
+  loadHistory();
+  setInterval(refreshAll, 10000);
+}
+
+async function apiFetch(path, opts = {}) {
+  const res = await fetch(API + path, { headers: { 'Content-Type': 'application/json' }, ...opts });
+  return res.json();
+}
+async function apiPost(path, body) { return apiFetch(path, { method: 'POST', body: JSON.stringify(body) }); }
+
+async function refreshAll() {
+  try {
+    const d = await apiFetch('/api/status');
+    if (!d.ok) return;
+    document.getElementById('modeLabel').textContent = d.config.isDryRun ? '🧪 DRY RUN' : '💸 LIVE';
+    const reopenOn = d.config.trading.reopenAfterClose;
+    const reopenEl = document.getElementById('reopenLabel');
+    reopenEl.textContent = reopenOn ? `🔁 Auto Reopen ON (${d.config.trading.cooldownAfterCloseMin ?? 5}m)` : '⏸ Auto Reopen OFF';
+    reopenEl.className = 'badge ' + (reopenOn ? 'green' : 'gray');
+    document.getElementById('st-pnl').textContent = (d.stats.totalPnlUsdt>=0?'+':'') + d.stats.totalPnlUsdt.toFixed(2) + ' USDT';
+    document.getElementById('st-pnl').className = 'stat-value ' + (d.stats.totalPnlUsdt>=0?'green':'red');
+    document.getElementById('st-active').textContent = d.stats.activeDeals + '/' + d.config.trading.maxActiveDeals;
+    document.getElementById('st-closed').textContent = d.stats.closedCount;
+    document.getElementById('st-order').textContent = d.config.dca.baseOrderSize + ' / ' + d.config.dca.safetyOrderSize + ' USDT';
+    renderDeals(d.deals);
+    renderConfig(d.config);
+  } catch(e) { document.getElementById('deals-body').innerHTML = '<tr><td colspan="10" class="empty">Gagal connect ke ' + API + '</td></tr>'; }
+}
+
+function renderDeals(deals) {
+  const entries = Object.entries(deals || {});
+  const tbody = document.getElementById('deals-body');
+  if (!entries.length) { tbody.innerHTML = '<tr><td colspan="10" class="empty">Tidak ada deal aktif</td></tr>'; return; }
+  tbody.innerHTML = entries.map(([sym, d]) => {
+    const sign = d.pnlPct >= 0 ? '+' : '';
+    const cls  = d.pnlPct >= 0 ? 'green' : 'red';
+    const slText = d.slPrice ? d.slPrice.toFixed(6) : (d.nextSOPrice !== null ? 'belum aktif' : '—');
+    const tpTitle = (d.tpPriceBase != null && d.tpPriceAverage != null)
+      ? `title="base: ${d.tpPriceBase.toFixed(6)} | avg: ${d.tpPriceAverage.toFixed(6)} (dipakai: yang terdekat)"`
+      : '';
+    return `<tr>
+      <td><b>${sym}</b></td>
+      <td>${d.avgPrice?.toFixed(6)}</td>
+      <td>${d.currentPrice ?? '—'}</td>
+      <td style="color:var(--${cls})">${sign}${d.pnlPct?.toFixed(2) ?? '—'}%</td>
+      <td style="color:var(--${cls})">${d.pnlUsdt != null ? (sign + d.pnlUsdt.toFixed(2) + ' USDT') : '—'}</td>
+      <td>${d.safetyOrdersFilled}</td>
+      <td>${d.nextSOPrice?.toFixed(6) ?? 'habis'}</td>
+      <td style="color:var(--green)" ${tpTitle}>${d.tpPrice?.toFixed(6) ?? '—'}</td>
+      <td style="color:var(--red)">${slText}</td>
+      <td><button class="btn danger" onclick="doClose('${sym}')">Close</button></td>
+    </tr>`;
+  }).join('');
+}
+
+async function loadHistory() {
+  const res = await apiFetch('/api/history');
+  const tbody = document.getElementById('history-body');
+  if (!res.ok || !res.deals?.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty">Belum ada history</td></tr>'; return; }
+  tbody.innerHTML = res.deals.map(d => {
+    const sign = d.pnlPct >= 0 ? '+' : '';
+    const cls  = d.pnlPct >= 0 ? 'green' : 'red';
+    return `<tr>
+      <td><b>${d.symbol}</b></td><td>${d.avgPrice.toFixed(6)}</td><td>${d.exitPrice.toFixed(6)}</td>
+      <td style="color:var(--${cls})">${sign}${d.pnlPct.toFixed(2)}%</td>
+      <td style="color:var(--${cls})">${sign}${d.pnlUsdt.toFixed(2)} USDT</td>
+      <td>${d.safetyOrdersFilled}</td><td>${d.reason}</td>
+      <td style="font-size:10px">${new Date(d.closedAt).toLocaleString('id-ID')}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderConfig(cfg) {
+  const d = cfg.dca, t = cfg.trading;
+  document.getElementById('config-grid').innerHTML = `
+    <div class="field"><label>Base Order (USDT)</label><input id="cfg-base" type="number" value="${d.baseOrderSize}"></div>
+    <div class="field"><label>Safety Order (USDT)</label><input id="cfg-so" type="number" value="${d.safetyOrderSize}"></div>
+    <div class="field"><label>Max Safety Order</label><input id="cfg-maxso" type="number" value="${d.maxSafetyOrders}"></div>
+    <div class="field"><label>Deviasi SO (%)</label><input id="cfg-dev" type="number" step="0.1" value="${d.priceDeviationPercent}"></div>
+    <div class="field"><label>SO Volume Scale</label><input id="cfg-volscale" type="number" step="0.1" value="${d.safetyOrderVolumeScale}"></div>
+    <div class="field"><label>SO Step Scale</label><input id="cfg-stepscale" type="number" step="0.1" value="${d.safetyOrderStepScale}"></div>
+    <div class="field"><label>Take Profit (%)</label><input id="cfg-tp" type="number" step="0.1" value="${d.takeProfitPercent}"></div>
+    <div class="field"><label>TP Basis</label><select id="cfg-tpbasis"><option value="average" ${d.takeProfitBasis==='average'?'selected':''}>Average (semua order)</option><option value="base" ${d.takeProfitBasis==='base'?'selected':''}>Base order saja</option><option value="both" ${d.takeProfitBasis==='both'?'selected':''}>Base atau Average (mana duluan)</option></select></div>
+    <div class="field"><label>Stop Loss Aktif</label><select id="cfg-slon"><option value="true" ${d.stopLossEnabled?'selected':''}>Ya</option><option value="false" ${!d.stopLossEnabled?'selected':''}>Tidak</option></select></div>
+    <div class="field"><label>Stop Loss (%)</label><input id="cfg-sl" type="number" step="0.1" value="${d.stopLossPercent}"></div>
+    <div class="field"><label>SL Basis</label><select id="cfg-slbasis"><option value="average" ${d.stopLossBasis==='average'?'selected':''}>Average (semua order)</option><option value="base" ${d.stopLossBasis==='base'?'selected':''}>Base order saja</option></select></div>
+    <div class="field"><label>Max Deal Bersamaan</label><input id="cfg-maxdeal" type="number" value="${t.maxActiveDeals}"></div>
+    <div class="field"><label>Check Interval (detik)</label><input id="cfg-interval" type="number" value="${t.checkIntervalSec}"></div>
+    <div class="field"><label>Auto Reopen Setelah TP</label><select id="cfg-reopen"><option value="true" ${t.reopenAfterClose?'selected':''}>ON</option><option value="false" ${!t.reopenAfterClose?'selected':''}>OFF</option></select></div>
+    <div class="field"><label>Cooldown Reopen (menit)</label><input id="cfg-cooldown" type="number" value="${t.cooldownAfterCloseMin ?? 5}"></div>
+  `;
+}
+
+async function saveConfig() {
+  const updates = {
+    dca: {
+      baseOrderSize: parseFloat(document.getElementById('cfg-base').value),
+      safetyOrderSize: parseFloat(document.getElementById('cfg-so').value),
+      maxSafetyOrders: parseInt(document.getElementById('cfg-maxso').value),
+      priceDeviationPercent: parseFloat(document.getElementById('cfg-dev').value),
+      safetyOrderVolumeScale: parseFloat(document.getElementById('cfg-volscale').value),
+      safetyOrderStepScale: parseFloat(document.getElementById('cfg-stepscale').value),
+      takeProfitPercent: parseFloat(document.getElementById('cfg-tp').value),
+      takeProfitBasis: document.getElementById('cfg-tpbasis').value,
+      stopLossEnabled: document.getElementById('cfg-slon').value === 'true',
+      stopLossPercent: parseFloat(document.getElementById('cfg-sl').value),
+      stopLossBasis: document.getElementById('cfg-slbasis').value,
+    },
+    trading: {
+      maxActiveDeals: parseInt(document.getElementById('cfg-maxdeal').value),
+      checkIntervalSec: parseInt(document.getElementById('cfg-interval').value),
+      reopenAfterClose: document.getElementById('cfg-reopen').value === 'true',
+      cooldownAfterCloseMin: parseInt(document.getElementById('cfg-cooldown').value),
+    },
+  };
+  const res = await apiPost('/api/config', updates);
+  alert(res.ok ? '✅ Config tersimpan (berlaku utk deal baru)' : '❌ ' + res.error);
+  if (res.ok) refreshAll();
+}
+
+async function doStart() {
+  const sym = document.getElementById('startSymbol').value.trim().toUpperCase();
+  if (!sym) return alert('Masukkan symbol');
+  if (!confirm(`Buka deal DCA untuk ${sym}?`)) return;
+  const res = await apiPost('/api/start', { symbol: sym });
+  alert(res.ok ? `✅ Deal ${sym} dibuka` : `❌ ${res.error}`);
+  if (res.ok) { document.getElementById('startSymbol').value=''; refreshAll(); }
+}
+
+async function doClose(sym) {
+  if (!confirm(`Tutup deal ${sym} sekarang (market sell)?`)) return;
+  const res = await apiPost('/api/close', { symbol: sym });
+  alert(res.ok ? `✅ Deal ${sym} ditutup` : `❌ ${res.error}`);
+  if (res.ok) { refreshAll(); loadHistory(); }
+}
+</script>
+</body>
+</html>
