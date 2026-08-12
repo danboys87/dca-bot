@@ -9,11 +9,13 @@
 :root{--bg:#f5f4f0;--surface:#fff;--border:#e2e0d8;--text:#1a1916;--muted:#7a7568;--green:#1a7a4a;--green-bg:#edf7f1;--red:#c0392b;--red-bg:#fdf0ee;--yellow:#b07d20;--yellow-bg:#fdf6e3;--mono:'DM Mono',monospace;--sans:'DM Sans',sans-serif;--radius:6px;}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:13px;line-height:1.5}
-.wrap{max-width:1100px;margin:0 auto;padding:20px}
+.wrap{max-width:1180px;margin:0 auto;padding:20px}
 header{display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap}
 header h1{font-family:var(--mono);font-size:15px;font-weight:500}
 .badge{font-family:var(--mono);font-size:11px;font-weight:500;padding:3px 8px;border-radius:3px}
 .badge.green{background:var(--green-bg);color:var(--green)}
+.badge.red{background:var(--red-bg);color:var(--red)}
+.badge.yellow{background:var(--yellow-bg);color:var(--yellow)}
 .badge.gray{background:var(--bg);color:var(--muted);border:1px solid var(--border)}
 .top-right{margin-left:auto;display:flex;gap:8px;align-items:center}
 input,select{font-family:var(--mono);font-size:12px;border:1px solid var(--border);border-radius:var(--radius);padding:6px 9px;background:var(--bg);color:var(--text);outline:none}
@@ -21,6 +23,7 @@ input,select{font-family:var(--mono);font-size:12px;border:1px solid var(--borde
 .btn.primary{background:var(--text);color:#fff;border-color:var(--text)}
 .btn.success{background:var(--green);color:#fff;border-color:var(--green)}
 .btn.danger{background:var(--red);color:#fff;border-color:var(--red)}
+.btn.small{padding:3px 8px;font-size:11px}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
 .stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px}
 .stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
@@ -39,6 +42,7 @@ tr.today td{background:var(--yellow-bg)}
 .field label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
 .dirty-badge{font-family:var(--mono);font-size:10px;font-weight:500;padding:3px 8px;border-radius:3px;background:var(--yellow-bg);color:var(--yellow);display:none}
 .winrate{font-size:11px;color:var(--muted)}
+.trend-cell{display:flex;align-items:center;gap:6px;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -47,6 +51,7 @@ tr.today td{background:var(--yellow-bg)}
   <h1>▣ DCA BOT</h1>
   <span class="badge gray" id="modeLabel">—</span>
   <span class="badge gray" id="reopenLabel">—</span>
+  <span class="badge gray" id="trendIntervalLabel">—</span>
   <div class="top-right">
     <input id="apiUrl" style="width:210px" value="http://localhost:3001" placeholder="http://localhost:3001">
     <button class="btn primary" onclick="connect()">Connect</button>
@@ -71,8 +76,8 @@ tr.today td{background:var(--yellow-bg)}
     </span>
   </div>
   <table>
-    <thead><tr><th>Symbol</th><th>Avg Entry</th><th>Now</th><th>PnL %</th><th>PnL USDT</th><th>SO</th><th>Next SO</th><th>TP</th><th>SL</th><th>Action</th></tr></thead>
-    <tbody id="deals-body"><tr><td colspan="10" class="empty">Belum connect</td></tr></tbody>
+    <thead><tr><th>Symbol</th><th>Avg Entry</th><th>Now</th><th>PnL %</th><th>PnL USDT</th><th>SO</th><th>Next SO</th><th>TP</th><th>SL</th><th>Trend</th><th>Action</th></tr></thead>
+    <tbody id="deals-body"><tr><td colspan="11" class="empty">Belum connect</td></tr></tbody>
   </table>
 </div>
 
@@ -121,6 +126,12 @@ let API = localStorage.getItem('dca_api_url') || 'http://localhost:3001';
 let configDirty = false;     // true selama user sedang mengedit form Config & belum klik Save
 let _historyCache = [];      // simpan hasil /api/history terakhir, dipakai ulang oleh tabel Daily PnL
 
+const TREND_INFO = {
+  bullish: { label: '📈 Bullish', cls: 'green' },
+  bearish: { label: '📉 Bearish', cls: 'red' },
+  netral:  { label: '➖ Netral',  cls: 'yellow' },
+};
+
 document.addEventListener('DOMContentLoaded', () => { document.getElementById('apiUrl').value = API; connect(); });
 
 function connect() {
@@ -147,6 +158,13 @@ async function refreshAll() {
     const reopenEl = document.getElementById('reopenLabel');
     reopenEl.textContent = reopenOn ? `🔁 Auto Reopen ON (${d.config.trading.cooldownAfterCloseMin ?? 5}m)` : '⏸ Auto Reopen OFF';
     reopenEl.className = 'badge ' + (reopenOn ? 'green' : 'gray');
+
+    const tf = (d.config.trading.trendTimeframe ?? '1h').toUpperCase();
+    const emaP = d.config.trading.trendEmaPeriod ?? 21;
+    const trendIntervalEl = document.getElementById('trendIntervalLabel');
+    trendIntervalEl.textContent = `🔎 EMA${emaP} @ ${tf}, cek tiap ${d.config.trading.trendCheckIntervalMin ?? 30}m`;
+    trendIntervalEl.className = 'badge gray';
+
     document.getElementById('st-pnl').textContent = (d.stats.totalPnlUsdt>=0?'+':'') + d.stats.totalPnlUsdt.toFixed(2) + ' USDT';
     document.getElementById('st-pnl').className = 'stat-value ' + (d.stats.totalPnlUsdt>=0?'green':'red');
     document.getElementById('st-active').textContent = d.stats.activeDeals + '/' + d.config.trading.maxActiveDeals;
@@ -158,13 +176,13 @@ async function refreshAll() {
     if (!configDirty) {
       renderConfig(d.config);
     }
-  } catch(e) { document.getElementById('deals-body').innerHTML = '<tr><td colspan="10" class="empty">Gagal connect ke ' + API + '</td></tr>'; }
+  } catch(e) { document.getElementById('deals-body').innerHTML = '<tr><td colspan="11" class="empty">Gagal connect ke ' + API + '</td></tr>'; }
 }
 
 function renderDeals(deals) {
   const entries = Object.entries(deals || {});
   const tbody = document.getElementById('deals-body');
-  if (!entries.length) { tbody.innerHTML = '<tr><td colspan="10" class="empty">Tidak ada deal aktif</td></tr>'; return; }
+  if (!entries.length) { tbody.innerHTML = '<tr><td colspan="11" class="empty">Tidak ada deal aktif</td></tr>'; return; }
   tbody.innerHTML = entries.map(([sym, d]) => {
     const sign = d.pnlPct >= 0 ? '+' : '';
     const cls  = d.pnlPct >= 0 ? 'green' : 'red';
@@ -172,6 +190,7 @@ function renderDeals(deals) {
     const tpTitle = (d.tpPriceBase != null && d.tpPriceAverage != null)
       ? `title="base: ${d.tpPriceBase.toFixed(6)} | avg: ${d.tpPriceAverage.toFixed(6)} (dipakai: yang terdekat)"`
       : '';
+    const t = TREND_INFO[d.trendStatus] || { label: '— belum dicek', cls: 'gray' };
     return `<tr>
       <td><b>${sym}</b></td>
       <td>${d.avgPrice?.toFixed(6)}</td>
@@ -182,9 +201,37 @@ function renderDeals(deals) {
       <td>${d.nextSOPrice?.toFixed(6) ?? 'habis'}</td>
       <td style="color:var(--green)" ${tpTitle}>${d.tpPrice?.toFixed(6) ?? '—'}</td>
       <td style="color:var(--red)">${slText}</td>
+      <td>
+        <div class="trend-cell">
+          <span class="badge ${t.cls}" id="trend-badge-${sym}">${t.label}</span>
+          <button class="btn small" onclick="doCheckTrend('${sym}')" title="Cek tren sekarang (live)">↻</button>
+        </div>
+      </td>
       <td><button class="btn danger" onclick="doClose('${sym}')">Close</button></td>
     </tr>`;
   }).join('');
+}
+
+// ── Trend Monitor — cek manual (live), tidak menunggu loop background ──────
+async function doCheckTrend(sym) {
+  const badge = document.getElementById(`trend-badge-${sym}`);
+  if (badge) { badge.textContent = '⏳ Menganalisa...'; badge.className = 'badge gray'; }
+  try {
+    const res = await apiFetch(`/api/trend/${sym}`);
+    if (!res.ok) { alert(`❌ ${sym}: ${res.error}`); refreshAll(); return; }
+    const t = TREND_INFO[res.status] || { label: res.status, cls: 'gray' };
+    if (badge) { badge.textContent = t.label; badge.className = 'badge ' + t.cls; }
+    alert(
+      `${sym} — ${t.label}\n` +
+      `Harga: ${res.price}\n` +
+      `EMA${res.period}: ${res.ema.toFixed(6)}\n` +
+      `Timeframe: ${res.timeframe.toUpperCase()}\n` +
+      `(Cek live — status tersimpan yang dipakai deteksi perubahan otomatis baru terupdate di loop berikutnya)`
+    );
+  } catch (e) {
+    alert(`❌ ${sym}: ${e.message}`);
+    if (badge) { badge.textContent = '— error'; badge.className = 'badge red'; }
+  }
 }
 
 // ── Deal History + PnL Harian ────────────────────────────────────────────────
@@ -292,6 +339,17 @@ function renderConfig(cfg) {
     <div class="field"><label>Check Interval (detik)</label><input id="cfg-interval" type="number" value="${t.checkIntervalSec}"></div>
     <div class="field"><label>Auto Reopen Setelah TP</label><select id="cfg-reopen"><option value="true" ${t.reopenAfterClose?'selected':''}>ON</option><option value="false" ${!t.reopenAfterClose?'selected':''}>OFF</option></select></div>
     <div class="field"><label>Cooldown Reopen (menit)</label><input id="cfg-cooldown" type="number" value="${t.cooldownAfterCloseMin ?? 5}"></div>
+    <div class="field"><label>Trend EMA Period</label><input id="cfg-trendema" type="number" value="${t.trendEmaPeriod ?? 21}"></div>
+    <div class="field"><label>Trend Timeframe</label>
+      <select id="cfg-trendtf">
+        <option value="15min" ${(t.trendTimeframe ?? '1h')==='15min'?'selected':''}>15 menit</option>
+        <option value="30min" ${(t.trendTimeframe ?? '1h')==='30min'?'selected':''}>30 menit</option>
+        <option value="1h" ${(t.trendTimeframe ?? '1h')==='1h'?'selected':''}>1 jam</option>
+        <option value="4h" ${(t.trendTimeframe ?? '1h')==='4h'?'selected':''}>4 jam</option>
+        <option value="1day" ${(t.trendTimeframe ?? '1h')==='1day'?'selected':''}>1 hari</option>
+      </select>
+    </div>
+    <div class="field"><label>Cek Tren (menit)</label><input id="cfg-trendinterval" type="number" value="${t.trendCheckIntervalMin ?? 30}"></div>
   `;
 
   const grid = document.getElementById('config-grid');
@@ -323,6 +381,9 @@ async function saveConfig() {
       checkIntervalSec: parseInt(document.getElementById('cfg-interval').value),
       reopenAfterClose: document.getElementById('cfg-reopen').value === 'true',
       cooldownAfterCloseMin: parseInt(document.getElementById('cfg-cooldown').value),
+      trendEmaPeriod: parseInt(document.getElementById('cfg-trendema').value),
+      trendTimeframe: document.getElementById('cfg-trendtf').value,
+      trendCheckIntervalMin: parseInt(document.getElementById('cfg-trendinterval').value),
     },
   };
   const res = await apiPost('/api/config', updates);

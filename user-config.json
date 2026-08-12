@@ -9,7 +9,11 @@
     "reopenAfterClose": true,
     "reopenOnReasons": [
       "take_profit"
-    ]
+    ],
+    "_comment_trend": "Trend Monitor: status ditentukan dari posisi harga terhadap 1 garis EMA (trendEmaPeriod) di timeframe trendTimeframe. Harga > EMA = Bullish, harga < EMA = Bearish. Dicek tiap trendCheckIntervalMin menit, utk semua symbol yang sedang punya deal aktif. INFORMATIF SAJA lewat notifikasi Telegram saat status berubah — tidak mempengaruhi SO/TP/SL. Bisa juga dicek manual kapan saja lewat /trend SYMBOL di Telegram atau tombol ↻ di dashboard.",
+    "trendEmaPeriod": 21,
+    "trendTimeframe": "1h",
+    "trendCheckIntervalMin": 30
   },
   "dca": {
     "_comment_baseOrder": "Order pertama (initial order) saat deal dibuka",

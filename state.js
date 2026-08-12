@@ -16,12 +16,13 @@ function loadLocal() {
     if (fs.existsSync(STATE_FILE)) {
       const s = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
       if (!s.pendingReopens) s.pendingReopens = {}; // backward-compat state.json lama
+      if (!s.trendStatus)    s.trendStatus    = {}; // backward-compat state.json lama
       return s;
     }
   } catch (err) {
     log('state_error', `Gagal baca state: ${err.message}`);
   }
-  return { deals: {}, closedDeals: [], totalPnlUsdt: 0, pendingReopens: {} };
+  return { deals: {}, closedDeals: [], totalPnlUsdt: 0, pendingReopens: {}, trendStatus: {} };
 }
 
 function saveLocal(state) {
@@ -106,6 +107,35 @@ export function closeDeal(symbol, { exitPrice, reason }) {
   return closed;
 }
 
+/**
+ * Untrack — dipakai kalau user JUAL SENDIRI di luar bot (manual di app exchange).
+ * BEDA dari closeDeal(): tidak ada exitPrice/eksekusi order, dan PnL SENGAJA
+ * tidak dihitung/ditambahkan ke totalPnlUsdt — supaya statistik bot tetap murni
+ * mencerminkan performa keputusan yang diambil OTOMATIS oleh bot sendiri.
+ */
+export function untrackDeal(symbol) {
+  const deal = _state.deals[symbol];
+  if (!deal) return null;
+
+  const closed = {
+    ...deal,
+    status:    'closed',
+    exitPrice: null,
+    closedAt:  new Date().toISOString(),
+    reason:    'manual_untracked',
+    pnlUsdt:   null,
+    pnlPct:    null,
+  };
+
+  _state.closedDeals.push(closed);
+  // totalPnlUsdt SENGAJA TIDAK diubah di sini.
+  delete _state.deals[symbol];
+  saveLocal(_state);
+
+  log('state', `📁 Deal di-untrack (manual, di luar bot): ${symbol} | SO terpakai=${deal.safetyOrdersFilled} | PnL TIDAK dihitung ke statistik`);
+  return closed;
+}
+
 // ── Auto Reopen scheduling ──────────────────────────────────────────────────
 export function schedulePendingReopen(symbol, closedAt, cooldownMin) {
   _state.pendingReopens[symbol] = { readyAt: closedAt + cooldownMin * 60 * 1000, closedAt };
@@ -118,6 +148,17 @@ export function clearPendingReopen(symbol) {
 }
 
 export function getPendingReopens() { return _state.pendingReopens; }
+
+// ── Trend status (dipakai trendMonitor.js) ──────────────────────────────────
+export function getTrendStatus(symbol) {
+  return _state.trendStatus?.[symbol] || null;
+}
+
+export function setTrendStatus(symbol, status) {
+  if (!_state.trendStatus) _state.trendStatus = {};
+  _state.trendStatus[symbol] = status;
+  saveLocal(_state);
+}
 
 export function getStats() {
   return {

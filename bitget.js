@@ -93,6 +93,15 @@ export async function getCurrentPrice(symbol) {
   return t ? parseFloat(t.lastPr || t.last) : null;
 }
 
+/**
+ * Ambil candle/kline spot. granularity: '1min','5min','15min','30min',
+ * '1h','4h','6h','12h','1day','3day','1week','1M' dst (lihat docs Bitget v2 spot market candles).
+ * Response: array of [timestamp, open, high, low, close, baseVol, quoteVol], terurut ASCENDING (lama → baru).
+ */
+export async function getCandles(symbol, granularity = '4h', limit = 250) {
+  return request('GET', '/api/v2/spot/market/candles', { symbol, granularity, limit }, null, false);
+}
+
 export async function testConnection() {
   try {
     const assets = await getAccountAssets();

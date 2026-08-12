@@ -65,6 +65,19 @@ export async function notifyDealClosed(closed) {
   );
 }
 
+/**
+ * Notif utk mode "sell sendiri" (untrack) — TIDAK ada eksekusi order dari bot,
+ * dan PnL SENGAJA tidak dihitung/ditampilkan karena tidak dicatat di statistik.
+ */
+export async function notifyDealUntracked(closed) {
+  await send(
+    `🖐 <b>Deal Ditandai Selesai (Manual)</b> — ${closed.symbol}\n` +
+    `Dijual sendiri di luar bot — bot TIDAK mengeksekusi order apapun.\n` +
+    `Avg entry: ${closed.avgPrice.toFixed(6)} | Safety order terpakai: ${closed.safetyOrdersFilled}\n` +
+    `<i>⚠️ PnL deal ini TIDAK dihitung ke statistik/Total PnL bot.</i>`
+  );
+}
+
 export async function notifyError(message) { await send(`⚠️ <b>DCA Bot Error</b>\n${message}`); }
 
 export async function notifyStartup(dryRun, cfg) {
@@ -75,5 +88,17 @@ export async function notifyStartup(dryRun, cfg) {
     `Deviasi SO: ${cfg.dca.priceDeviationPercent}% | TP: ${cfg.dca.takeProfitPercent}% (basis: ${cfg.dca.takeProfitBasis})\n` +
     `SL: ${cfg.dca.stopLossEnabled ? cfg.dca.stopLossPercent + '% (basis: ' + cfg.dca.stopLossBasis + ')' : 'nonaktif'}\n` +
     `Max deal bersamaan: ${cfg.trading.maxActiveDeals}`
+  );
+}
+
+// ── Trend Monitor (informatif saja — tidak mempengaruhi SO/TP/SL) ──────────
+const trendLabel = { bullish: '📈 Bullish', bearish: '📉 Bearish', netral: '➖ Netral/Sideways' };
+
+export async function notifyTrendChange(symbol, prevStatus, newStatus, price, timeframe) {
+  await send(
+    `🔔 <b>Perubahan Tren</b>${timeframe ? ` (${timeframe.toUpperCase()})` : ''} — ${symbol}\n` +
+    `${trendLabel[prevStatus] || prevStatus} → <b>${trendLabel[newStatus] || newStatus}</b>\n` +
+    `Harga sekarang: ${price}\n` +
+    `<i>Info saja — SO/TP/SL tetap jalan seperti biasa.</i>`
   );
 }

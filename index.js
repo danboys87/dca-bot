@@ -12,21 +12,23 @@ import { config, saveConfig } from './config.js';
 import { testConnection, getCurrentPrice } from './bitget.js';
 import {
   getActiveSymbols, getDeal, getActiveDeals, getStats, getClosedDeals, hasActiveDeal,
-  schedulePendingReopen, clearPendingReopen, getPendingReopens,
+  schedulePendingReopen, clearPendingReopen, getPendingReopens, untrackDeal,
 } from './state.js';
 import { evaluateDeal } from './dcaEngine.js';
 import { openDeal, fillSafetyOrder, closeDealMarket } from './executor.js';
 import {
-  notifyDealOpened, notifySafetyOrder, notifyDealClosed, notifyError, notifyStartup,
+  notifyDealOpened, notifySafetyOrder, notifyDealClosed, notifyDealUntracked, notifyError, notifyStartup,
 } from './telegram.js';
 import { startTelegramPolling, stopTelegramPolling } from './telegramCommands.js';
 import { startApiServer } from './apiServer.js';
+import { checkAllTrends } from './trendMonitor.js';
 
 const isDryRun = process.env.DRY_RUN === 'true';
 const args     = process.argv.slice(2);
 
 let _loopBusy = false;
 let _loopTimer = null;
+let _trendTimer = null;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // START / CLOSE DEAL (dipakai oleh Telegram & API)
@@ -97,6 +99,9 @@ async function processPendingReopens() {
   }
 }
 
+/**
+ * Close manual DENGAN eksekusi market sell asli dari bot.
+ */
 export async function closeDealManual(symbol) {
   if (!hasActiveDeal(symbol)) return { ok: false, error: `Deal ${symbol} tidak aktif` };
   try {
@@ -106,6 +111,24 @@ export async function closeDealManual(symbol) {
     return { ok: true, closed };
   } catch (e) {
     log('executor_error', `Tutup deal ${symbol} gagal: ${e.message}`);
+    return { ok: false, error: e.message };
+  }
+}
+
+/**
+ * Close manual TANPA eksekusi order — dipakai kalau user jual sendiri di luar bot
+ * (langsung di app exchange). Bot cuma berhenti mantau deal ini. PnL TIDAK dihitung
+ * ke statistik/Total PnL bot karena tidak ada harga jual asli yang bot tahu.
+ */
+export async function closeDealUntrack(symbol) {
+  if (!hasActiveDeal(symbol)) return { ok: false, error: `Deal ${symbol} tidak aktif` };
+  try {
+    const closed = untrackDeal(symbol);
+    await notifyDealUntracked(closed);
+    maybeScheduleReopen(closed); // no-op kecuali user tambahin 'manual_untracked' ke reopenOnReasons
+    return { ok: true, closed };
+  } catch (e) {
+    log('executor_error', `Untrack deal ${symbol} gagal: ${e.message}`);
     return { ok: false, error: e.message };
   }
 }
@@ -182,6 +205,21 @@ function stopLoop() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// TREND LOOP — analisa tren (informatif saja, terpisah dari loop DCA utama)
+// ─────────────────────────────────────────────────────────────────────────────
+function startTrendLoop() {
+  stopTrendLoop();
+  const min = config.trading.trendCheckIntervalMin ?? 30;
+  log('startup', `Loop analisa tren tiap ${min} menit`);
+  _trendTimer = setInterval(() => checkAllTrends(getActiveSymbols()), min * 60 * 1000);
+  checkAllTrends(getActiveSymbols());
+}
+
+function stopTrendLoop() {
+  if (_trendTimer) { clearInterval(_trendTimer); _trendTimer = null; }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // STATUS DISPLAY
 // ─────────────────────────────────────────────────────────────────────────────
 async function showStatus() {
@@ -215,6 +253,7 @@ async function showStatus() {
       console.log(`    ${s} — sisa ~${sisaMin} menit`);
     }
   }
+  console.log(`  Cek Tren    : EMA${config.trading.trendEmaPeriod ?? 21} @ ${(config.trading.trendTimeframe ?? '1h').toUpperCase()}, tiap ${config.trading.trendCheckIntervalMin ?? 30} menit`);
   console.log('══════════════════════════════════════\n');
 }
 
@@ -223,7 +262,7 @@ async function showStatus() {
 // ─────────────────────────────────────────────────────────────────────────────
 function startREPL() {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout, prompt: '\n[dca-bot] > ' });
-  console.log('\n📖 Perintah: status | start SYMBOL | close SYMBOL | reopen on/off | stop | help\n');
+  console.log('\n📖 Perintah: status | start SYMBOL | close SYMBOL | untrack SYMBOL | reopen on/off | stop | help\n');
   rl.prompt();
 
   rl.on('line', async (line) => {
@@ -236,14 +275,17 @@ function startREPL() {
       case 'close':
         if (!arg) { console.log('Format: close SYMBOL'); break; }
         console.log(await closeDealManual(arg.toUpperCase())); break;
+      case 'untrack':
+        if (!arg) { console.log('Format: untrack SYMBOL  (tandai selesai TANPA sell dari bot, PnL tidak dihitung)'); break; }
+        console.log(await closeDealUntrack(arg.toUpperCase())); break;
       case 'reopen':
         if (!arg || !['on', 'off'].includes(arg.toLowerCase())) { console.log('Format: reopen on | reopen off'); break; }
         saveConfig({ trading: { reopenAfterClose: arg.toLowerCase() === 'on' } });
         console.log(`🔁 Auto Reopen sekarang: ${config.trading.reopenAfterClose ? 'ON' : 'OFF'}`);
         break;
-      case 'stop': stopLoop(); stopTelegramPolling(); process.exit(0); break;
+      case 'stop': stopLoop(); stopTrendLoop(); stopTelegramPolling(); process.exit(0); break;
       case 'help':
-        console.log('  status | start SYMBOL | close SYMBOL | reopen on/off | stop'); break;
+        console.log('  status | start SYMBOL | close SYMBOL | untrack SYMBOL | reopen on/off | stop'); break;
       default: console.log(`❓ Perintah tidak dikenal: "${cmd}"`);
     }
     rl.prompt();
@@ -285,10 +327,11 @@ async function main() {
   if (args.includes('--list-only')) { await showStatus(); process.exit(0); }
 
   startLoop();
+  startTrendLoop();
 
-  startTelegramPolling({ startDeal, closeDealManual });
+  startTelegramPolling({ startDeal, closeDealManual, closeDealUntrack });
 
-  startApiServer({ startDeal, closeDealManual });
+  startApiServer({ startDeal, closeDealManual, closeDealUntrack });
 
   if (process.stdin.isTTY) startREPL();
   else log('startup', 'Non-TTY mode - berjalan sebagai daemon');

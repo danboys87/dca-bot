@@ -1,0 +1,211 @@
+/**
+ * Telegram Command Handler — DCA Bot
+ */
+import { log } from './logger.js';
+import { getStats, getActiveDeals, getDeal, getClosedDeals, getActiveSymbols } from './state.js';
+import { getCurrentPrice } from './bitget.js';
+import { config, saveConfig } from './config.js';
+import { analyzeTrend } from './trendMonitor.js';
+
+const getToken  = () => process.env.TELEGRAM_BOT_TOKEN;
+const getChatId = () => process.env.TELEGRAM_CHAT_ID;
+const getBase   = () => { const t = getToken(); return t ? `https://api.telegram.org/bot${t}` : null; };
+
+let _offset = 0, _polling = false, _pollTimer = null;
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function reply(chatId, text) {
+  if (!getBase()) return;
+  try {
+    await fetch(`${getBase()}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' }),
+    });
+  } catch (err) { log('telegram_error', `Reply error: ${err.message}`); }
+}
+
+async function getUpdates() {
+  if (!getBase()) return [];
+  try {
+    const res  = await fetch(`${getBase()}/getUpdates?offset=${_offset}&timeout=10&allowed_updates=["message"]`);
+    const data = await res.json();
+    return data.ok ? data.result : [];
+  } catch { return []; }
+}
+
+async function buildDealsText() {
+  const deals = getActiveDeals();
+  const syms  = Object.keys(deals);
+  if (!syms.length) return '📭 Tidak ada deal aktif.';
+
+  let text = `📊 <b>Deal Aktif (${syms.length}):</b>\n\n`;
+  for (const sym of syms) {
+    const d   = deals[sym];
+    const cur = await getCurrentPrice(sym).catch(() => null);
+    const pnl = cur ? ((cur - d.avgPrice) / d.avgPrice * 100) : null;
+    text += `<b>${sym}</b>\n`;
+    text += `  Avg: ${d.avgPrice.toFixed(6)} | Now: ${cur ?? '—'} | PnL: ${pnl !== null ? (pnl >= 0 ? '+' : '') + pnl.toFixed(2) + '%' : '—'}\n`;
+    text += `  SO terpakai: ${d.safetyOrdersFilled}/${config.dca.maxSafetyOrders} | Next SO @ ${d.nextSOPrice?.toFixed(6) ?? 'habis'}\n`;
+    const slText = d.slPrice ? d.slPrice.toFixed(6) : (d.nextSOPrice !== null ? 'belum aktif (masih ada SO)' : '—');
+    const tpText = (d.tpPriceBase != null && d.tpPriceAverage != null)
+      ? `${d.tpPrice?.toFixed(6)} (base: ${d.tpPriceBase.toFixed(6)} | avg: ${d.tpPriceAverage.toFixed(6)})`
+      : d.tpPrice?.toFixed(6);
+    text += `  TP: ${tpText} | SL: ${slText}\n\n`;
+  }
+  return text;
+}
+
+// ── Trend Monitor helpers ───────────────────────────────────────────────────
+const trendLabel = { bullish: '📈 Bullish', bearish: '📉 Bearish', netral: '➖ Netral' };
+
+function buildTrendText(symbol, r) {
+  return (
+    `<b>${symbol}</b> — ${trendLabel[r.status] || r.status}\n` +
+    `Harga: ${r.price}\n` +
+    `EMA${r.period}: ${r.ema.toFixed(6)}\n` +
+    `Timeframe: ${r.timeframe.toUpperCase()}`
+  );
+}
+
+async function handleCommand(chatId, text, callbacks) {
+  if (String(chatId) !== String(getChatId())) { await reply(chatId, '⛔ Tidak diizinkan.'); return; }
+
+  const parts = text.trim().split(/\s+/);
+  const cmd   = parts[0].toLowerCase();
+  const arg   = parts[1]?.toUpperCase();
+
+  log('telegram', `Cmd: ${cmd}${arg ? ' ' + arg : ''}`);
+
+  switch (cmd) {
+    case '/startdca': {
+      if (!arg) { await reply(chatId, '❓ Format: /startdca SYMBOL\nContoh: /startdca BTCUSDT'); break; }
+      await reply(chatId, `⏳ Membuka deal DCA ${arg}...`);
+      try {
+        const res = await callbacks.startDeal(arg);
+        await reply(chatId, res.ok ? `✅ Deal ${arg} dibuka.` : `❌ ${res.error}`);
+      } catch (e) { await reply(chatId, `❌ Error: ${e.message}`); }
+      break;
+    }
+
+    case '/closedca': {
+      if (!arg) { await reply(chatId, '❓ Format: /closedca SYMBOL'); break; }
+      await reply(chatId, `⏳ Menutup deal ${arg}...`);
+      try {
+        const res = await callbacks.closeDealManual(arg);
+        await reply(chatId, res.ok ? `✅ Deal ${arg} ditutup.` : `❌ ${res.error}`);
+      } catch (e) { await reply(chatId, `❌ Error: ${e.message}`); }
+      break;
+    }
+
+    case '/deals': {
+      await reply(chatId, await buildDealsText());
+      break;
+    }
+
+    case '/stats': {
+      const s = getStats();
+      const sign = s.totalPnlUsdt >= 0 ? '+' : '';
+      await reply(chatId, `📊 <b>Statistik DCA</b>\n📂 Aktif: ${s.activeDeals}\n✅ Closed: ${s.closedCount}\n💰 Total PnL: ${sign}${s.totalPnlUsdt.toFixed(2)} USDT`);
+      break;
+    }
+
+    case '/reopen': {
+      if (!arg || !['ON', 'OFF'].includes(arg)) {
+        const status = config.trading.reopenAfterClose ? 'ON' : 'OFF';
+        await reply(chatId, `🔁 Auto Reopen saat ini: <b>${status}</b>\nFormat: /reopen on atau /reopen off`);
+        break;
+      }
+      try {
+        saveConfig({ trading: { reopenAfterClose: arg === 'ON' } });
+        await reply(chatId, `✅ Auto Reopen sekarang: <b>${arg}</b>${arg === 'ON' ? ` (cooldown ${config.trading.cooldownAfterCloseMin ?? 5} menit)` : ''}`);
+      } catch (e) { await reply(chatId, `❌ Error: ${e.message}`); }
+      break;
+    }
+
+    case '/trend': {
+      if (arg) {
+        await reply(chatId, `⏳ Menganalisa tren ${arg}...`);
+        try {
+          const result = await analyzeTrend(arg);
+          await reply(chatId, result ? buildTrendText(arg, result) : `❌ Data candle ${arg} tidak cukup utk analisa.`);
+        } catch (e) { await reply(chatId, `❌ Error: ${e.message}`); }
+        break;
+      }
+
+      const symbols = getActiveSymbols();
+      if (!symbols.length) { await reply(chatId, '📭 Tidak ada deal aktif. Format: /trend SYMBOL utk cek symbol manapun.'); break; }
+
+      await reply(chatId, `⏳ Menganalisa tren ${symbols.length} symbol aktif...`);
+      for (const sym of symbols) {
+        try {
+          const result = await analyzeTrend(sym);
+          await reply(chatId, result ? buildTrendText(sym, result) : `❌ ${sym}: data candle tidak cukup`);
+        } catch (e) { await reply(chatId, `❌ ${sym}: ${e.message}`); }
+        await sleep(300); // jaga rate limit Bitget
+      }
+      break;
+    }
+
+    case '/config': {
+      const d = config.dca, t = config.trading;
+      await reply(chatId,
+        `⚙️ <b>Config DCA Saat Ini</b>\n\n` +
+        `Base order   : ${d.baseOrderSize} USDT\n` +
+        `Safety order : ${d.safetyOrderSize} USDT (x${d.safetyOrderVolumeScale} tiap step)\n` +
+        `Max SO       : ${d.maxSafetyOrders}\n` +
+        `Deviasi SO   : ${d.priceDeviationPercent}% (x${d.safetyOrderStepScale} tiap step)\n` +
+        `TP           : ${d.takeProfitPercent}% (basis: ${d.takeProfitBasis}${d.takeProfitBasis === 'both' ? ' — trigger begitu base ATAU average tercapai duluan' : ''})\n` +
+        `SL           : ${d.stopLossEnabled ? d.stopLossPercent + '% (basis: ' + d.stopLossBasis + ', aktif setelah semua SO habis)' : 'nonaktif'}\n` +
+        `Max deal     : ${t.maxActiveDeals}\n` +
+        `Auto Reopen  : ${t.reopenAfterClose ? `ON (cooldown ${t.cooldownAfterCloseMin ?? 5} menit)` : 'OFF'}\n` +
+        `Tren         : EMA${t.trendEmaPeriod ?? 21} @ ${(t.trendTimeframe ?? '1h').toUpperCase()}, cek tiap ${t.trendCheckIntervalMin ?? 30} menit (informatif saja)\n\n` +
+        `<i>Edit lewat dashboard atau user-config.json, lalu restart bot.</i>`
+      );
+      break;
+    }
+
+    case '/help':
+    default: {
+      await reply(chatId,
+        `🤖 <b>DCA Bot — Bantuan</b>\n\n` +
+        `/startdca SYMBOL  — buka deal baru (base order)\n` +
+        `/closedca SYMBOL  — tutup deal manual (market sell)\n` +
+        `/deals            — lihat semua deal aktif\n` +
+        `/stats            — ringkasan PnL\n` +
+        `/config           — lihat setting DCA saat ini\n` +
+        `/trend [SYMBOL]   — cek status tren (kosongkan utk semua deal aktif)\n` +
+        `/reopen on|off    — toggle auto-reopen setelah TP`
+      );
+      break;
+    }
+  }
+}
+
+export function startTelegramPolling(callbacks) {
+  if (!getToken() || !getChatId()) { log('telegram', 'Telegram tidak dikonfigurasi'); return; }
+  if (_polling) return;
+  _polling = true;
+  log('telegram', '✅ Telegram polling aktif (DCA Bot)');
+
+  async function poll() {
+    if (!_polling) return;
+    const updates = await getUpdates();
+    for (const update of updates) {
+      _offset = update.update_id + 1;
+      const msg = update.message;
+      if (!msg?.text?.startsWith('/')) continue;
+      try { await handleCommand(msg.chat.id, msg.text, callbacks); }
+      catch (err) { log('telegram_error', `Handle error: ${err.message}`); }
+    }
+    if (_polling) _pollTimer = setTimeout(poll, 1000);
+  }
+  poll();
+}
+
+export function stopTelegramPolling() {
+  _polling = false;
+  if (_pollTimer) { clearTimeout(_pollTimer); _pollTimer = null; }
+  log('telegram', 'Polling dihentikan');
+}
