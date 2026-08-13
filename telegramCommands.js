@@ -2,15 +2,18 @@
  * Telegram Command Handler — DCA Bot
  */
 import { log } from './logger.js';
-import { getStats, getActiveDeals, getDeal, getClosedDeals } from './state.js';
+import { getStats, getActiveDeals, getDeal, getClosedDeals, getActiveSymbols } from './state.js';
 import { getCurrentPrice } from './bitget.js';
 import { config, saveConfig } from './config.js';
+import { analyzeTrend } from './trendMonitor.js';
 
 const getToken  = () => process.env.TELEGRAM_BOT_TOKEN;
 const getChatId = () => process.env.TELEGRAM_CHAT_ID;
 const getBase   = () => { const t = getToken(); return t ? `https://api.telegram.org/bot${t}` : null; };
 
 let _offset = 0, _polling = false, _pollTimer = null;
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 async function reply(chatId, text) {
   if (!getBase()) return;
@@ -54,6 +57,18 @@ async function buildDealsText() {
   return text;
 }
 
+// ── Trend Monitor helpers ───────────────────────────────────────────────────
+const trendLabel = { bullish: '📈 Bullish', bearish: '📉 Bearish', netral: '➖ Netral' };
+
+function buildTrendText(symbol, r) {
+  return (
+    `<b>${symbol}</b> — ${trendLabel[r.status] || r.status}\n` +
+    `Harga: ${r.price}\n` +
+    `EMA${r.period}: ${r.ema.toFixed(6)}\n` +
+    `Timeframe: ${r.timeframe.toUpperCase()}`
+  );
+}
+
 async function handleCommand(chatId, text, callbacks) {
   if (String(chatId) !== String(getChatId())) { await reply(chatId, '⛔ Tidak diizinkan.'); return; }
 
@@ -75,11 +90,21 @@ async function handleCommand(chatId, text, callbacks) {
     }
 
     case '/closedca': {
-      if (!arg) { await reply(chatId, '❓ Format: /closedca SYMBOL'); break; }
-      await reply(chatId, `⏳ Menutup deal ${arg}...`);
+      if (!arg) { await reply(chatId, '❓ Format: /closedca SYMBOL\n(Bot akan eksekusi market sell asli. Kalau kamu sudah jual sendiri di luar bot, pakai /untrack SYMBOL.)'); break; }
+      await reply(chatId, `⏳ Menutup deal ${arg} (market sell)...`);
       try {
         const res = await callbacks.closeDealManual(arg);
         await reply(chatId, res.ok ? `✅ Deal ${arg} ditutup.` : `❌ ${res.error}`);
+      } catch (e) { await reply(chatId, `❌ Error: ${e.message}`); }
+      break;
+    }
+
+    case '/untrack': {
+      if (!arg) { await reply(chatId, '❓ Format: /untrack SYMBOL\nDipakai kalau kamu sudah JUAL SENDIRI di luar bot. Bot akan berhenti mantau deal ini TANPA eksekusi order apapun, dan PnL-nya TIDAK dihitung ke statistik.'); break; }
+      await reply(chatId, `⏳ Menandai ${arg} selesai (manual, tanpa sell)...`);
+      try {
+        const res = await callbacks.closeDealUntrack(arg);
+        await reply(chatId, res.ok ? `✅ ${arg} ditandai selesai (manual). PnL TIDAK dihitung ke statistik.` : `❌ ${res.error}`);
       } catch (e) { await reply(chatId, `❌ Error: ${e.message}`); }
       break;
     }
@@ -109,6 +134,30 @@ async function handleCommand(chatId, text, callbacks) {
       break;
     }
 
+    case '/trend': {
+      if (arg) {
+        await reply(chatId, `⏳ Menganalisa tren ${arg}...`);
+        try {
+          const result = await analyzeTrend(arg);
+          await reply(chatId, result ? buildTrendText(arg, result) : `❌ Data candle ${arg} tidak cukup utk analisa.`);
+        } catch (e) { await reply(chatId, `❌ Error: ${e.message}`); }
+        break;
+      }
+
+      const symbols = getActiveSymbols();
+      if (!symbols.length) { await reply(chatId, '📭 Tidak ada deal aktif. Format: /trend SYMBOL utk cek symbol manapun.'); break; }
+
+      await reply(chatId, `⏳ Menganalisa tren ${symbols.length} symbol aktif...`);
+      for (const sym of symbols) {
+        try {
+          const result = await analyzeTrend(sym);
+          await reply(chatId, result ? buildTrendText(sym, result) : `❌ ${sym}: data candle tidak cukup`);
+        } catch (e) { await reply(chatId, `❌ ${sym}: ${e.message}`); }
+        await sleep(300); // jaga rate limit Bitget
+      }
+      break;
+    }
+
     case '/config': {
       const d = config.dca, t = config.trading;
       await reply(chatId,
@@ -120,7 +169,8 @@ async function handleCommand(chatId, text, callbacks) {
         `TP           : ${d.takeProfitPercent}% (basis: ${d.takeProfitBasis}${d.takeProfitBasis === 'both' ? ' — trigger begitu base ATAU average tercapai duluan' : ''})\n` +
         `SL           : ${d.stopLossEnabled ? d.stopLossPercent + '% (basis: ' + d.stopLossBasis + ', aktif setelah semua SO habis)' : 'nonaktif'}\n` +
         `Max deal     : ${t.maxActiveDeals}\n` +
-        `Auto Reopen  : ${t.reopenAfterClose ? `ON (cooldown ${t.cooldownAfterCloseMin ?? 5} menit)` : 'OFF'}\n\n` +
+        `Auto Reopen  : ${t.reopenAfterClose ? `ON (cooldown ${t.cooldownAfterCloseMin ?? 5} menit)` : 'OFF'}\n` +
+        `Tren         : EMA${t.trendEmaPeriod ?? 21} @ ${(t.trendTimeframe ?? '1h').toUpperCase()}, cek tiap ${t.trendCheckIntervalMin ?? 30} menit (informatif saja)\n\n` +
         `<i>Edit lewat dashboard atau user-config.json, lalu restart bot.</i>`
       );
       break;
@@ -131,10 +181,12 @@ async function handleCommand(chatId, text, callbacks) {
       await reply(chatId,
         `🤖 <b>DCA Bot — Bantuan</b>\n\n` +
         `/startdca SYMBOL  — buka deal baru (base order)\n` +
-        `/closedca SYMBOL  — tutup deal manual (market sell)\n` +
+        `/closedca SYMBOL  — tutup deal manual (bot market sell)\n` +
+        `/untrack SYMBOL   — tandai selesai TANPA sell dari bot (kamu sudah jual sendiri di luar bot; PnL tidak dihitung)\n` +
         `/deals            — lihat semua deal aktif\n` +
         `/stats            — ringkasan PnL\n` +
         `/config           — lihat setting DCA saat ini\n` +
+        `/trend [SYMBOL]   — cek status tren (kosongkan utk semua deal aktif)\n` +
         `/reopen on|off    — toggle auto-reopen setelah TP`
       );
       break;

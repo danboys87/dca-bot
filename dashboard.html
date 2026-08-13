@@ -9,7 +9,7 @@
 :root{--bg:#f5f4f0;--surface:#fff;--border:#e2e0d8;--text:#1a1916;--muted:#7a7568;--green:#1a7a4a;--green-bg:#edf7f1;--red:#c0392b;--red-bg:#fdf0ee;--yellow:#b07d20;--yellow-bg:#fdf6e3;--mono:'DM Mono',monospace;--sans:'DM Sans',sans-serif;--radius:6px;}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:13px;line-height:1.5}
-.wrap{max-width:1180px;margin:0 auto;padding:20px}
+.wrap{max-width:1220px;margin:0 auto;padding:20px}
 header{display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap}
 header h1{font-family:var(--mono);font-size:15px;font-weight:500}
 .badge{font-family:var(--mono);font-size:11px;font-weight:500;padding:3px 8px;border-radius:3px}
@@ -23,7 +23,9 @@ input,select{font-family:var(--mono);font-size:12px;border:1px solid var(--borde
 .btn.primary{background:var(--text);color:#fff;border-color:var(--text)}
 .btn.success{background:var(--green);color:#fff;border-color:var(--green)}
 .btn.danger{background:var(--red);color:#fff;border-color:var(--red)}
-.btn.small{padding:3px 8px;font-size:11px}
+.btn.ghost{background:var(--surface);color:var(--text)}
+.btn.small{padding:3px 8px;font-size:11px;white-space:nowrap}
+.action-cell{display:flex;flex-direction:row;gap:6px;flex-wrap:nowrap}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
 .stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px}
 .stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
@@ -36,6 +38,12 @@ th{text-align:left;padding:8px 12px;font-size:10px;font-weight:600;text-transfor
 td{padding:9px 12px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:12px}
 tr:last-child td{border-bottom:none}
 tr.today td{background:var(--yellow-bg)}
+tr.untracked td{background:#faf9f6}
+tr.day-row{cursor:pointer}
+tr.day-row:hover td{background:var(--bg)}
+tr.day-detail td{padding:0;background:var(--bg)}
+tr.day-detail table{width:100%}
+tr.day-detail th{background:var(--surface)}
 .empty{padding:30px;text-align:center;color:var(--muted);font-family:var(--mono);font-size:12px}
 .config-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px}
 .field{display:flex;flex-direction:column;gap:4px}
@@ -43,6 +51,7 @@ tr.today td{background:var(--yellow-bg)}
 .dirty-badge{font-family:var(--mono);font-size:10px;font-weight:500;padding:3px 8px;border-radius:3px;background:var(--yellow-bg);color:var(--yellow);display:none}
 .winrate{font-size:11px;color:var(--muted)}
 .trend-cell{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.day-note{padding:8px 14px;font-size:11px;color:var(--muted);border-top:1px solid var(--border)}
 </style>
 </head>
 <body>
@@ -98,14 +107,7 @@ tr.today td{background:var(--yellow-bg)}
     <thead><tr><th>Tanggal</th><th>Deal Ditutup</th><th>Win Rate</th><th>PnL (USDT)</th></tr></thead>
     <tbody id="daily-body"><tr><td colspan="4" class="empty">—</td></tr></tbody>
   </table>
-</div>
-
-<div class="panel">
-  <div class="panel-header"><span>≡ Deal History</span><button class="btn" onclick="loadHistory()">↻ Refresh</button></div>
-  <table>
-    <thead><tr><th>Symbol</th><th>Avg Entry</th><th>Exit</th><th>PnL %</th><th>PnL USDT</th><th>SO Terpakai</th><th>Reason</th><th>Closed</th></tr></thead>
-    <tbody id="history-body"><tr><td colspan="8" class="empty">—</td></tr></tbody>
-  </table>
+  <div class="day-note">ℹ️ Klik baris tanggal utk lihat detail deal di hari itu. Deal yang ditutup lewat <b>Manual Sell</b> (di luar bot) ikut tercatat tapi PnL-nya tidak dihitung ke Total PnL / Win Rate.</div>
 </div>
 
 <div class="panel">
@@ -124,12 +126,20 @@ tr.today td{background:var(--yellow-bg)}
 <script>
 let API = localStorage.getItem('dca_api_url') || 'http://localhost:3001';
 let configDirty = false;     // true selama user sedang mengedit form Config & belum klik Save
-let _historyCache = [];      // simpan hasil /api/history terakhir, dipakai ulang oleh tabel Daily PnL
+let _historyCache = [];      // simpan hasil /api/history terakhir, dipakai ulang oleh tabel PnL Harian + detail per tanggal
+let _openDays = new Set();   // tanggal mana saja yang detailnya sedang expanded
 
 const TREND_INFO = {
   bullish: { label: '📈 Bullish', cls: 'green' },
   bearish: { label: '📉 Bearish', cls: 'red' },
   netral:  { label: '➖ Netral',  cls: 'yellow' },
+};
+
+const REASON_LABEL = {
+  take_profit:      '🎯 Take Profit',
+  stop_loss:        '🛑 Stop Loss',
+  manual_close:      '🖐 Manual Close (bot sell)',
+  manual_untracked: '📤 Manual Sell',
 };
 
 document.addEventListener('DOMContentLoaded', () => { document.getElementById('apiUrl').value = API; connect(); });
@@ -207,7 +217,12 @@ function renderDeals(deals) {
           <button class="btn small" onclick="doCheckTrend('${sym}')" title="Cek tren sekarang (live)">↻</button>
         </div>
       </td>
-      <td><button class="btn danger" onclick="doClose('${sym}')">Close</button></td>
+      <td>
+        <div class="action-cell">
+          <button class="btn danger small" onclick="doClose('${sym}')" title="Bot eksekusi market sell asli">Close (Sell)</button>
+          <button class="btn ghost small" onclick="doUntrack('${sym}')" title="Kamu sudah jual sendiri di luar bot — bot cuma berhenti mantau, TIDAK ada order, PnL tidak dihitung">Manual Sell</button>
+        </div>
+      </td>
     </tr>`;
   }).join('');
 }
@@ -234,49 +249,41 @@ async function doCheckTrend(sym) {
   }
 }
 
-// ── Deal History + PnL Harian ────────────────────────────────────────────────
-// Keduanya dihitung dari sumber data yang sama (/api/history), supaya tidak
-// perlu request terpisah ke server.
+// ── PnL Harian + detail per tanggal (menggantikan tabel Deal History terpisah) ─
+// Sumber data sama-sama dari /api/history. Deal 'manual_untracked' (pnlUsdt: null)
+// tetap dihitung sbg "Deal Ditutup" & muncul di detail, tapi SENGAJA dikecualikan
+// dari Total PnL / PnL Harian / Win Rate.
 
 async function loadHistory() {
   const res = await apiFetch('/api/history?limit=1000');
-  const tbody = document.getElementById('history-body');
-  if (!res.ok || !res.deals?.length) {
-    tbody.innerHTML = '<tr><td colspan="8" class="empty">Belum ada history</td></tr>';
-    _historyCache = [];
-    renderDailyFromCache();
-    return;
-  }
-  _historyCache = res.deals;
-
-  tbody.innerHTML = res.deals.map(d => {
-    const sign = d.pnlPct >= 0 ? '+' : '';
-    const cls  = d.pnlPct >= 0 ? 'green' : 'red';
-    return `<tr>
-      <td><b>${d.symbol}</b></td><td>${d.avgPrice.toFixed(6)}</td><td>${d.exitPrice.toFixed(6)}</td>
-      <td style="color:var(--${cls})">${sign}${d.pnlPct.toFixed(2)}%</td>
-      <td style="color:var(--${cls})">${sign}${d.pnlUsdt.toFixed(2)} USDT</td>
-      <td>${d.safetyOrdersFilled}</td><td>${d.reason}</td>
-      <td style="font-size:10px">${new Date(d.closedAt).toLocaleString('id-ID')}</td>
-    </tr>`;
-  }).join('');
-
+  _historyCache = (res.ok && res.deals) ? res.deals : [];
   renderDailyFromCache();
 }
 
-// Kelompokkan closed deals per tanggal (waktu lokal browser), hitung total PnL,
-// jumlah deal, dan win rate tiap hari.
-function computeDailyPnl(deals) {
-  const map = {}; // 'YYYY-MM-DD' -> { pnlUsdt, count, wins }
+function dayKeyOf(closedAt) {
+  const dt = new Date(closedAt);
+  return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
+}
+
+function computeDailyStats(deals) {
+  const map = {}; // 'YYYY-MM-DD' -> { pnlUsdt, count, wins, scoredCount }
   for (const d of deals) {
-    const dt  = new Date(d.closedAt);
-    const key = dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
-    if (!map[key]) map[key] = { pnlUsdt: 0, count: 0, wins: 0 };
-    map[key].pnlUsdt += d.pnlUsdt;
-    map[key].count   += 1;
-    if (d.pnlUsdt >= 0) map[key].wins += 1;
+    const key = dayKeyOf(d.closedAt);
+    if (!map[key]) map[key] = { pnlUsdt: 0, count: 0, wins: 0, scoredCount: 0 };
+    map[key].count += 1; // semua deal closed (termasuk Manual Sell) dihitung di sini
+    if (d.pnlUsdt != null) { // hanya deal yang ada PnL asli yang masuk hitungan PnL/win rate
+      map[key].pnlUsdt += d.pnlUsdt;
+      map[key].scoredCount += 1;
+      if (d.pnlUsdt >= 0) map[key].wins += 1;
+    }
   }
   return map;
+}
+
+function dealsForDay(key) {
+  return _historyCache
+    .filter(d => dayKeyOf(d.closedAt) === key)
+    .sort((a, b) => new Date(b.closedAt) - new Date(a.closedAt));
 }
 
 function todayKey() {
@@ -291,9 +298,40 @@ function formatDayLabel(key) {
   return key === todayKey() ? `${label} (hari ini)` : label;
 }
 
+function buildDayDetailHtml(key) {
+  const deals = dealsForDay(key);
+  if (!deals.length) return '<div class="empty">Tidak ada deal</div>';
+  const rows = deals.map(d => {
+    const isUntracked = d.pnlUsdt == null;
+    const sign = !isUntracked && d.pnlPct >= 0 ? '+' : '';
+    const cls  = !isUntracked && d.pnlPct >= 0 ? 'green' : 'red';
+    const reasonText = REASON_LABEL[d.reason] || d.reason;
+    return `<tr class="${isUntracked ? 'untracked' : ''}">
+      <td><b>${d.symbol}</b></td>
+      <td>${d.avgPrice.toFixed(6)}</td>
+      <td>${d.exitPrice != null ? d.exitPrice.toFixed(6) : '—'}</td>
+      <td ${isUntracked ? '' : `style="color:var(--${cls})"`}>${isUntracked ? '—' : sign + d.pnlPct.toFixed(2) + '%'}</td>
+      <td ${isUntracked ? '' : `style="color:var(--${cls})"`}>${isUntracked ? '— (manual)' : sign + d.pnlUsdt.toFixed(2) + ' USDT'}</td>
+      <td>${d.safetyOrdersFilled}</td>
+      <td>${reasonText}</td>
+      <td style="font-size:10px">${new Date(d.closedAt).toLocaleString('id-ID')}</td>
+    </tr>`;
+  }).join('');
+  return `<table>
+    <thead><tr><th>Symbol</th><th>Avg</th><th>Exit</th><th>PnL%</th><th>PnL USDT</th><th>SO</th><th>Reason</th><th>Waktu</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function toggleDay(key) {
+  if (_openDays.has(key)) _openDays.delete(key);
+  else _openDays.add(key);
+  renderDailyFromCache();
+}
+
 function renderDailyFromCache() {
   const rangeDays = parseInt(document.getElementById('dailyRange')?.value || '30');
-  const dailyMap  = computeDailyPnl(_historyCache);
+  const dailyMap  = computeDailyStats(_historyCache);
   const keys      = Object.keys(dailyMap).sort().reverse().slice(0, rangeDays);
 
   // Update kartu "PnL Hari Ini"
@@ -310,14 +348,19 @@ function renderDailyFromCache() {
     const row  = dailyMap[key];
     const sign = row.pnlUsdt >= 0 ? '+' : '';
     const cls  = row.pnlUsdt >= 0 ? 'green' : 'red';
-    const winRate = row.count ? Math.round((row.wins / row.count) * 100) : 0;
+    const winRate = row.scoredCount ? Math.round((row.wins / row.scoredCount) * 100) : 0;
     const isToday = key === todayKey();
-    return `<tr class="${isToday ? 'today' : ''}">
-      <td>${formatDayLabel(key)}</td>
+    const isOpen  = _openDays.has(key);
+    const mainRow = `<tr class="day-row ${isToday ? 'today' : ''}" onclick="toggleDay('${key}')">
+      <td>${isOpen ? '▾' : '▸'} ${formatDayLabel(key)}</td>
       <td>${row.count}</td>
-      <td>${row.wins}/${row.count} <span class="winrate">(${winRate}%)</span></td>
+      <td>${row.wins}/${row.scoredCount} <span class="winrate">(${winRate}%)</span></td>
       <td style="color:var(--${cls})">${sign}${row.pnlUsdt.toFixed(2)} USDT</td>
     </tr>`;
+    const detailRow = isOpen
+      ? `<tr class="day-detail"><td colspan="4">${buildDayDetailHtml(key)}</td></tr>`
+      : '';
+    return mainRow + detailRow;
   }).join('');
 }
 
@@ -405,9 +448,16 @@ async function doStart() {
 }
 
 async function doClose(sym) {
-  if (!confirm(`Tutup deal ${sym} sekarang (market sell)?`)) return;
+  if (!confirm(`Tutup deal ${sym} sekarang?\n\nBot akan eksekusi MARKET SELL asli ke Bitget.`)) return;
   const res = await apiPost('/api/close', { symbol: sym });
   alert(res.ok ? `✅ Deal ${sym} ditutup` : `❌ ${res.error}`);
+  if (res.ok) { refreshAll(); loadHistory(); }
+}
+
+async function doUntrack(sym) {
+  if (!confirm(`Tandai deal ${sym} selesai TANPA sell dari bot (Manual Sell)?\n\nPakai ini HANYA kalau kamu SUDAH jual ${sym} sendiri langsung di app exchange.\nBot TIDAK akan mengirim order apapun, dan PnL deal ini TIDAK akan dihitung ke statistik/Total PnL.`)) return;
+  const res = await apiPost('/api/untrack', { symbol: sym });
+  alert(res.ok ? `✅ ${sym} ditandai selesai (Manual Sell). PnL tidak dihitung.` : `❌ ${res.error}`);
   if (res.ok) { refreshAll(); loadHistory(); }
 }
 </script>

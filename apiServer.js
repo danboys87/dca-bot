@@ -7,8 +7,9 @@ import path   from 'path';
 import { fileURLToPath } from 'url';
 import { log }             from './logger.js';
 import { getCurrentPrice } from './bitget.js';
-import { getStats, getActiveDeals, getClosedDeals } from './state.js';
+import { getStats, getActiveDeals, getClosedDeals, getTrendStatus } from './state.js';
 import { config, saveConfig } from './config.js';
+import { analyzeTrend } from './trendMonitor.js';
 
 const __dirname  = path.dirname(fileURLToPath(import.meta.url));
 const PORT       = parseInt(process.env.DASHBOARD_PORT || '3001');
@@ -70,7 +71,7 @@ async function handle(req, res) {
       const price = await getCurrentPrice(sym).catch(() => null);
       const pnlPct  = price ? ((price - d.avgPrice) / d.avgPrice * 100) : null;
       const pnlUsdt = price ? ((price - d.avgPrice) * d.totalQty) : null;
-      enriched[sym] = { ...d, currentPrice: price, pnlPct, pnlUsdt };
+      enriched[sym] = { ...d, currentPrice: price, pnlPct, pnlUsdt, trendStatus: getTrendStatus(sym) };
     }
     json(res, {
       ok: true,
@@ -105,6 +106,18 @@ async function handle(req, res) {
     return;
   }
 
+  // Analisa tren fresh (live), TIDAK menimpa status tersimpan yang dipakai
+  // background loop utk deteksi perubahan — murni utk tampilan "cek sekarang".
+  if (route.startsWith('/api/trend/') && method === 'GET') {
+    const symbol = route.split('/').pop().toUpperCase();
+    try {
+      const result = await analyzeTrend(symbol);
+      if (!result) { err(res, `Data candle ${symbol} tidak cukup utk analisa tren`); return; }
+      json(res, { ok: true, symbol, ...result });
+    } catch (e) { err(res, e.message); }
+    return;
+  }
+
   if (route === '/api/config' && method === 'GET') { json(res, { ok: true, config }); return; }
 
   if (route === '/api/config' && method === 'POST') {
@@ -126,6 +139,16 @@ async function handle(req, res) {
     const { symbol } = await readBody(req);
     if (!symbol) { err(res, 'symbol required'); return; }
     try { json(res, await _callbacks.closeDealManual(symbol.toUpperCase())); }
+    catch (e) { err(res, e.message); }
+    return;
+  }
+
+  // Close TANPA eksekusi order — user sudah jual sendiri di luar bot.
+  // PnL deal ini TIDAK dihitung ke statistik (lihat state.js -> untrackDeal).
+  if (route === '/api/untrack' && method === 'POST') {
+    const { symbol } = await readBody(req);
+    if (!symbol) { err(res, 'symbol required'); return; }
+    try { json(res, await _callbacks.closeDealUntrack(symbol.toUpperCase())); }
     catch (e) { err(res, e.message); }
     return;
   }

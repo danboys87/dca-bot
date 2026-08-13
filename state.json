@@ -1,1 +1,1447 @@
-{"deals":{},"closedDeals":[],"totalPnlUsdt":0,"pendingReopens":{}}
+{
+  "deals": {
+    "FETUSDT": {
+      "symbol": "FETUSDT",
+      "status": "active",
+      "baseOrderPrice": 0.1339,
+      "avgPrice": 0.1339,
+      "totalQty": 112.02,
+      "totalSpent": 14.999477999999998,
+      "safetyOrdersFilled": 0,
+      "nextSOPrice": 0.13122199999999998,
+      "nextSOSize": 20,
+      "tpPrice": 0.135239,
+      "slPrice": null,
+      "openedAt": "2026-08-13T02:42:12.664Z",
+      "orders": [
+        {
+          "tag": "base",
+          "qty": 112.02,
+          "price": 0.1339,
+          "budget": 15,
+          "orderId": "dryrun_1786588932664",
+          "filledAt": "2026-08-13T02:42:12.664Z"
+        }
+      ],
+      "tpPriceBase": 0.135239,
+      "tpPriceAverage": 0.135239
+    },
+    "APRUSDT": {
+      "symbol": "APRUSDT",
+      "status": "active",
+      "baseOrderPrice": 0.55774,
+      "avgPrice": 0.5126801177047573,
+      "totalQty": 224.28999999999996,
+      "totalSpent": 114.9890236,
+      "safetyOrdersFilled": 5,
+      "nextSOPrice": null,
+      "nextSOSize": null,
+      "tpPrice": 0.5178069188818049,
+      "slPrice": null,
+      "openedAt": "2026-08-13T03:04:14.625Z",
+      "orders": [
+        {
+          "tag": "base",
+          "qty": 26.89,
+          "price": 0.55774,
+          "budget": 15,
+          "orderId": "dryrun_1786590254625",
+          "filledAt": "2026-08-13T03:04:14.625Z"
+        },
+        {
+          "tag": "so1",
+          "qty": 37.08,
+          "price": 0.53932,
+          "budget": 20,
+          "orderId": "dryrun_1786590949390",
+          "filledAt": "2026-08-13T03:15:49.391Z"
+        },
+        {
+          "tag": "so2",
+          "qty": 37.98,
+          "price": 0.52656,
+          "budget": 20,
+          "orderId": "dryrun_1786591181231",
+          "filledAt": "2026-08-13T03:19:41.231Z"
+        },
+        {
+          "tag": "so3",
+          "qty": 39.35,
+          "price": 0.50825,
+          "budget": 20,
+          "orderId": "dryrun_1786591301282",
+          "filledAt": "2026-08-13T03:21:41.282Z"
+        },
+        {
+          "tag": "so4",
+          "qty": 40.63,
+          "price": 0.49217,
+          "budget": 20,
+          "orderId": "dryrun_1786591601518",
+          "filledAt": "2026-08-13T03:26:41.518Z"
+        },
+        {
+          "tag": "so5",
+          "qty": 42.36,
+          "price": 0.4721,
+          "budget": 20,
+          "orderId": "dryrun_1786591721371",
+          "filledAt": "2026-08-13T03:28:41.371Z"
+        }
+      ],
+      "tpPriceBase": 0.5633174,
+      "tpPriceAverage": 0.5178069188818049
+    },
+    "INJUSDT": {
+      "symbol": "INJUSDT",
+      "status": "active",
+      "baseOrderPrice": 4.668,
+      "avgPrice": 4.668,
+      "totalQty": 3.21,
+      "totalSpent": 14.98428,
+      "safetyOrdersFilled": 0,
+      "nextSOPrice": 4.5746400000000005,
+      "nextSOSize": 20,
+      "tpPrice": 4.71468,
+      "slPrice": null,
+      "openedAt": "2026-08-13T03:18:38.202Z",
+      "orders": [
+        {
+          "tag": "base",
+          "qty": 3.21,
+          "price": 4.668,
+          "budget": 15,
+          "orderId": "dryrun_1786591118201",
+          "filledAt": "2026-08-13T03:18:38.202Z"
+        }
+      ],
+      "tpPriceBase": 4.71468,
+      "tpPriceAverage": 4.71468
+    }
+  },
+  "closedDeals": [
+    {
+      "symbol": "HOLOUSDT",
+      "status": "closed",
+      "baseOrderPrice": 0.0972,
+      "avgPrice": 0.0972,
+      "totalQty": 154.32,
+      "totalSpent": 14.999903999999999,
+      "safetyOrdersFilled": 0,
+      "nextSOPrice": 0.095256,
+      "nextSOSize": 20,
+      "tpPrice": 0.098172,
+      "slPrice": null,
+      "openedAt": "2026-08-12T01:10:56.381Z",
+      "orders": [
+        {
+          "tag": "base",
+          "qty": 154.32,
+          "price": 0.0972,
+          "budget": 15,
+          "orderId": "dryrun_1786497056381",
+          "filledAt": "2026-08-12T01:10:56.381Z"
+        }
+      ],
+      "tpPriceBase": 0.098172,
+      "tpPriceAverage": 0.098172,
+      "exitPrice": 0.0978,
+      "closedAt": "2026-08-12T01:12:02.507Z",
+      "reason": "take_profit",
+      "pnlUsdt": 0.09259200000000051,
+      "pnlPct": 0.6172839506172874
+    },
+    {
+      "symbol": "VELVETUSDT",
+      "status": "closed",
+      "baseOrderPrice": 0.58598,
+      "avgPrice": 0.58598,
+      "totalQty": 25.59,
+      "totalSpent": 14.995228199999998,
+      "safetyOrdersFilled": 0,
+      "nextSOPrice": 0.5742603999999999,
+      "nextSOSize": 20,
+      "tpPrice": 0.5918397999999999,
+      "slPrice": null,
+      "openedAt": "2026-08-12T01:11:58.410Z",
+      "orders": [
+        {
+          "tag": "base",
+          "qty": 25.59,
+          "price": 0.58598,
+          "budget": 15,
+          "orderId": "dryrun_1786497118410",
+          "filledAt": "2026-08-12T01:11:58.410Z"
+        }
+      ],
+      "tpPriceBase": 0.5918397999999999,
+      "tpPriceAverage": 0.5918397999999999,
+      "exitPrice": 0.59524,
+      "closedAt": "2026-08-12T01:13:03.024Z",
+      "reason": "take_profit",
+      "pnlUsdt": 0.23696340000000118,
+      "pnlPct": 1.5802587119014382
+    },
+    {
+      "symbol": "HOLOUSDT",
+      "status": "closed",
+      "baseOrderPrice": 0.09404,
+      "avgPrice": 0.092799253612621,
+      "totalQty": 377.15,
+      "totalSpent": 34.999238500000004,
+      "safetyOrdersFilled": 1,
+      "nextSOPrice": 0.0900522,
+      "nextSOSize": 20,
+      "tpPrice": 0.09372724614874721,
+      "slPrice": null,
+      "openedAt": "2026-08-12T01:13:03.438Z",
+      "orders": [
+        {
+          "tag": "base",
+          "qty": 159.5,
+          "price": 0.09404,
+          "budget": 15,
+          "orderId": "dryrun_1786497183438",
+          "filledAt": "2026-08-12T01:13:03.438Z"
+        },
+        {
+          "tag": "so1",
+          "qty": 217.65,
+          "price": 0.09189,
+          "budget": 20,
+          "orderId": "dryrun_1786497302914",
+          "filledAt": "2026-08-12T01:15:02.914Z"
+        }
+      ],
+      "tpPriceBase": 0.09498039999999999,
+      "tpPriceAverage": 0.09372724614874721,
+      "exitPrice": 0.09378,
+      "closedAt": "2026-08-12T01:17:03.042Z",
+      "reason": "take_profit",
+      "pnlUsdt": 0.369888499999993,
+      "pnlPct": 1.056847279691508
+    },
+    {
+      "symbol": "VELVETUSDT",
+      "status": "closed",
+      "baseOrderPrice": 0.60135,
+      "avgPrice": 0.60135,
+      "totalQty": 24.94,
+      "totalSpent": 14.997669000000002,
+      "safetyOrdersFilled": 0,
+      "nextSOPrice": 0.589323,
+      "nextSOSize": 20,
+      "tpPrice": 0.6073635000000001,
+      "slPrice": null,
+      "openedAt": "2026-08-12T01:14:04.996Z",
+      "orders": [
+        {
+          "tag": "base",
+          "qty": 24.94,
+          "price": 0.60135,
+          "budget": 15,
+          "orderId": "dryrun_1786497244996",
+          "filledAt": "2026-08-12T01:14:04.996Z"
+        }
+      ],
+      "tpPriceBase": 0.6073635000000001,
+      "tpPriceAverage": 0.6073635000000001,
+      "exitPrice": 0.60737,
+      "closedAt": "2026-08-12T01:17:03.598Z",
+      "reason": "take_profit",
+      "pnlUsdt": 0.15013879999999788,
+      "pnlPct": 1.0010809013053819
+    },
+    {
+      "symbol": "BTRUSDT",
+      "status": "closed",
+      "baseOrderPrice": 0.03083,
+      "avgPrice": 0.030466816883998677,
+      "totalQty": 1148.78,
+      "totalSpent": 34.9996699,
+      "safetyOrdersFilled": 1,
+      "nextSOPrice": 0.029596,
+      "nextSOSize": 20,
+      "tpPrice": 0.030771485052838665,
+      "slPrice": null,
+      "openedAt": "2026-08-12T01:11:41.593Z",
+      "orders": [
+        {
+          "tag": "base",
+          "qty": 486.53,
+          "price": 0.03083,
+          "budget": 15,
+          "orderId": "dryrun_1786497101593",
+          "filledAt": "2026-08-12T01:11:41.593Z"
+        },
+        {
+          "tag": "so1",
+          "qty": 662.25,
+          "price": 0.0302,
+          "budget": 20,
+          "orderId": "dryrun_1786497422505",
+          "filledAt": "2026-08-12T01:17:02.505Z"
+        }
+      ],
+      "tpPriceBase": 0.0311383,
+      "tpPriceAverage": 0.030771485052838665,
+      "exitPrice": 0.03085,
+      "closedAt": "2026-08-12T01:20:02.636Z",
+      "reason": "take_profit",
+      "pnlUsdt": 0.44019309999999856,
+      "pnlPct": 1.2577064333969576
+    },
+    {
+      "symbol": "HOLOUSDT",
+      "status": "closed",
+      "baseOrderPrice": 0.09175,
+      "avgPrice": 0.09175,
+      "totalQty": 163.48,
+      "totalSpent": 14.999289999999998,
+      "safetyOrdersFilled": 0,
+      "nextSOPrice": 0.089915,
+      "nextSOSize": 20,
+      "tpPrice": 0.0926675,
+      "slPrice": null,
+      "openedAt": "2026-08-12T01:19:02.943Z",
+      "orders": [
+        {
+          "tag": "base",
+          "qty": 163.48,
+          "price": 0.09175,
+          "budget": 15,
+          "orderId": "dryrun_1786497542943",
+          "filledAt": "2026-08-12T01:19:02.943Z"
+        }
+      ],
+      "tpPriceBase": 0.0926675,
+      "tpPriceAverage": 0.0926675,
+      "exitPrice": 0.09303,
+      "closedAt": "2026-08-12T01:20:03.156Z",
+      "reason": "take_profit",
+      "pnlUsdt": 0.20925440000000053,
+      "pnlPct": 1.395095367847415
+    },
+    {
+      "symbol": "BTRUSDT",
+      "status": "closed",
+      "baseOrderPrice": 0.03077,
+      "avgPrice": 0.030769999999999995,
+      "totalQty": 487.48,
+      "totalSpent": 14.999759599999999,
+      "safetyOrdersFilled": 0,
+      "nextSOPrice": 0.030154599999999997,
+      "nextSOSize": 20,
+      "tpPrice": 0.031077699999999996,
+      "slPrice": null,
+      "openedAt": "2026-08-12T01:21:02.919Z",
+      "orders": [
+        {
+          "tag": "base",
+          "qty": 487.48,
+          "price": 0.03077,
+          "budget": 15,
+          "orderId": "dryrun_1786497662919",
+          "filledAt": "2026-08-12T01:21:02.920Z"
+        }
+      ],
+      "tpPriceBase": 0.0310777,
+      "tpPriceAverage": 0.031077699999999996,
+      "exitPrice": 0.03114,
+      "closedAt": "2026-08-12T01:26:03.553Z",
+      "reason": "take_profit",
+      "pnlUsdt": 0.1803676000000028,
+      "pnlPct": 1.2024699382515625
+    },
+    {
+      "symbol": "HOLOUSDT",
+      "status": "closed",
+      "baseOrderPrice": 0.09315,
+      "avgPrice": 0.09315,
+      "totalQty": 161.03,
+      "totalSpent": 14.9999445,
+      "safetyOrdersFilled": 0,
+      "nextSOPrice": 0.091287,
+      "nextSOSize": 20,
+      "tpPrice": 0.0940815,
+      "slPrice": null,
+      "openedAt": "2026-08-12T01:22:03.225Z",
+      "orders": [
+        {
+          "tag": "base",
+          "qty": 161.03,
+          "price": 0.09315,
+          "budget": 15,
+          "orderId": "dryrun_1786497723225",
+          "filledAt": "2026-08-12T01:22:03.225Z"
+        }
+      ],
+      "tpPriceBase": 0.0940815,
+      "tpPriceAverage": 0.0940815,
+      "exitPrice": 0.09423,
+      "closedAt": "2026-08-12T01:27:03.445Z",
+      "reason": "take_profit",
+      "pnlUsdt": 0.1739123999999996,
+      "pnlPct": 1.1594202898550698
+    },
+    {
+      "symbol": "HOLOUSDT",
+      "status": "closed",
+      "baseOrderPrice": 0.09474,
+      "avgPrice": 0.09474,
+      "totalQty": 158.32,
+      "totalSpent": 14.9992368,
+      "safetyOrdersFilled": 0,
+      "nextSOPrice": 0.0928452,
+      "nextSOSize": 20,
+      "tpPrice": 0.0956874,
+      "slPrice": null,
+      "openedAt": "2026-08-12T01:29:03.474Z",
+      "orders": [
+        {
+          "tag": "base",
+          "qty": 158.32,
+          "price": 0.09474,
+          "budget": 15,
+          "orderId": "dryrun_1786498143474",
+          "filledAt": "2026-08-12T01:29:03.474Z"
+        }
+      ],
+      "tpPriceBase": 0.0956874,
+      "tpPriceAverage": 0.0956874,
+      "exitPrice": 0.09627,
+      "closedAt": "2026-08-12T01:34:03.449Z",
+      "reason": "take_profit",
+      "pnlUsdt": 0.24222959999999835,
+      "pnlPct": 1.6149461684610404
+    },
+    {
+      "symbol": "VELVETUSDT",
+      "status": "closed",
+      "baseOrderPrice": 0.60574,
+      "avgPrice": 0.5985563742089961,
+      "totalQty": 58.47,
+      "totalSpent": 34.9975912,
+      "safetyOrdersFilled": 1,
+      "nextSOPrice": 0.5814144,
+      "nextSOSize": 20,
+      "tpPrice": 0.604541937951086,
+      "slPrice": null,
+      "openedAt": "2026-08-12T01:19:03.071Z",
+      "orders": [
+        {
+          "tag": "base",
+          "qty": 24.76,
+          "price": 0.60574,
+          "budget": 15,
+          "orderId": "dryrun_1786497543071",
+          "filledAt": "2026-08-12T01:19:03.071Z"
+        },
+        {
+          "tag": "so1",
+          "qty": 33.71,
+          "price": 0.59328,
+          "budget": 20,
+          "orderId": "dryrun_1786498202605",
+          "filledAt": "2026-08-12T01:30:02.605Z"
+        }
+      ],
+      "tpPriceBase": 0.6117973999999999,
+      "tpPriceAverage": 0.604541937951086,
+      "exitPrice": 0.60824,
+      "closedAt": "2026-08-12T01:37:22.265Z",
+      "reason": "take_profit",
+      "pnlUsdt": 0.5662015999999982,
+      "pnlPct": 1.6178302008396455
+    },
+    {
+      "symbol": "HOLOUSDT",
+      "status": "closed",
+      "baseOrderPrice": 0.09564,
+      "avgPrice": 0.09564,
+      "totalQty": 156.83,
+      "totalSpent": 14.999221200000001,
+      "safetyOrdersFilled": 0,
+      "nextSOPrice": 0.0937272,
+      "nextSOSize": 20,
+      "tpPrice": 0.0965964,
+      "slPrice": null,
+      "openedAt": "2026-08-12T01:36:03.527Z",
+      "orders": [
+        {
+          "tag": "base",
+          "qty": 156.83,
+          "price": 0.09564,
+          "budget": 15,
+          "orderId": "dryrun_1786498563526",
+          "filledAt": "2026-08-12T01:36:03.527Z"
+        }
+      ],
+      "tpPriceBase": 0.0965964,
+      "tpPriceAverage": 0.0965964,
+      "exitPrice": 0.09713,
+      "closedAt": "2026-08-12T01:46:02.940Z",
+      "reason": "take_profit",
+      "pnlUsdt": 0.23367669999999865,
+      "pnlPct": 1.5579255541614296
+    },
+    {
+      "symbol": "VELVETUSDT",
+      "status": "closed",
+      "baseOrderPrice": 0.61436,
+      "avgPrice": 0.61436,
+      "totalQty": 24.41,
+      "totalSpent": 14.9965276,
+      "safetyOrdersFilled": 0,
+      "nextSOPrice": 0.6020728,
+      "nextSOSize": 20,
+      "tpPrice": 0.6205036,
+      "slPrice": null,
+      "openedAt": "2026-08-12T01:39:03.351Z",
+      "orders": [
+        {
+          "tag": "base",
+          "qty": 24.41,
+          "price": 0.61436,
+          "budget": 15,
+          "orderId": "dryrun_1786498743350",
+          "filledAt": "2026-08-12T01:39:03.351Z"
+        }
+      ],
+      "tpPriceBase": 0.6205036,
+      "tpPriceAverage": 0.6205036,
+      "exitPrice": 0.62174,
+      "closedAt": "2026-08-12T01:47:02.916Z",
+      "reason": "take_profit",
+      "pnlUsdt": 0.18014579999999858,
+      "pnlPct": 1.2012500813854974
+    },
+    {
+      "symbol": "HOLOUSDT",
+      "status": "closed",
+      "baseOrderPrice": 0.09713,
+      "avgPrice": 0.09713,
+      "totalQty": 154.43,
+      "totalSpent": 14.9997859,
+      "safetyOrdersFilled": 0,
+      "nextSOPrice": 0.09518739999999999,
+      "nextSOSize": 20,
+      "tpPrice": 0.09810129999999999,
+      "slPrice": null,
+      "openedAt": "2026-08-12T01:47:03.336Z",
+      "orders": [
+        {
+          "tag": "base",
+          "qty": 154.43,
+          "price": 0.09713,
+          "budget": 15,
+          "orderId": "dryrun_1786499223336",
+          "filledAt": "2026-08-12T01:47:03.336Z"
+        }
+      ],
+      "tpPriceBase": 0.09810129999999999,
+      "tpPriceAverage": 0.09810129999999999,
+      "exitPrice": 0.09877,
+      "closedAt": "2026-08-12T01:48:03.038Z",
+      "reason": "take_profit",
+      "pnlUsdt": 0.2532652000000004,
+      "pnlPct": 1.6884587666014645
+    },
+    {
+      "symbol": "HOLOUSDT",
+      "status": "closed",
+      "baseOrderPrice": 0.09752,
+      "avgPrice": 0.09752,
+      "totalQty": 153.81,
+      "totalSpent": 14.999551199999999,
+      "safetyOrdersFilled": 0,
+      "nextSOPrice": 0.09556959999999999,
+      "nextSOSize": 20,
+      "tpPrice": 0.09849519999999999,
+      "slPrice": null,
+      "openedAt": "2026-08-12T01:49:03.344Z",
+      "orders": [
+        {
+          "tag": "base",
+          "qty": 153.81,
+          "price": 0.09752,
+          "budget": 15,
+          "orderId": "dryrun_1786499343344",
+          "filledAt": "2026-08-12T01:49:03.344Z"
+        }
+      ],
+      "tpPriceBase": 0.09849519999999999,
+      "tpPriceAverage": 0.09849519999999999,
+      "exitPrice": 0.09856,
+      "closedAt": "2026-08-12T01:53:03.465Z",
+      "reason": "take_profit",
+      "pnlUsdt": 0.1599623999999999,
+      "pnlPct": 1.0664479081214102
+    },
+    {
+      "symbol": "HOLOUSDT",
+      "status": "closed",
+      "baseOrderPrice": 0.09822,
+      "avgPrice": 0.09822,
+      "totalQty": 152.71,
+      "totalSpent": 14.9991762,
+      "safetyOrdersFilled": 0,
+      "nextSOPrice": 0.0962556,
+      "nextSOSize": 20,
+      "tpPrice": 0.0992022,
+      "slPrice": null,
+      "openedAt": "2026-08-12T01:55:03.249Z",
+      "orders": [
+        {
+          "tag": "base",
+          "qty": 152.71,
+          "price": 0.09822,
+          "budget": 15,
+          "orderId": "dryrun_1786499703249",
+          "filledAt": "2026-08-12T01:55:03.249Z"
+        }
+      ],
+      "tpPriceBase": 0.0992022,
+      "tpPriceAverage": 0.0992022,
+      "exitPrice": 0.09998,
+      "closedAt": "2026-08-12T02:00:03.387Z",
+      "reason": "take_profit",
+      "pnlUsdt": 0.26876959999999966,
+      "pnlPct": 1.7918957442476051
+    },
+    {
+      "symbol": "VELVETUSDT",
+      "status": "closed",
+      "baseOrderPrice": 0.62409,
+      "avgPrice": 0.6166878780401833,
+      "totalQty": 56.74,
+      "totalSpent": 34.9908702,
+      "safetyOrdersFilled": 1,
+      "nextSOPrice": 0.5990249999999999,
+      "nextSOSize": 20,
+      "tpPrice": 0.6228547568205851,
+      "slPrice": null,
+      "openedAt": "2026-08-12T01:48:03.509Z",
+      "orders": [
+        {
+          "tag": "base",
+          "qty": 24.03,
+          "price": 0.62409,
+          "budget": 15,
+          "orderId": "dryrun_1786499283509",
+          "filledAt": "2026-08-12T01:48:03.509Z"
+        },
+        {
+          "tag": "so1",
+          "qty": 32.71,
+          "price": 0.61125,
+          "budget": 20,
+          "orderId": "dryrun_1786499643041",
+          "filledAt": "2026-08-12T01:54:03.041Z"
+        }
+      ],
+      "tpPriceBase": 0.6303309,
+      "tpPriceAverage": 0.6228547568205851,
+      "exitPrice": 0.6233,
+      "closedAt": "2026-08-12T02:05:03.031Z",
+      "reason": "take_profit",
+      "pnlUsdt": 0.3751717999999962,
+      "pnlPct": 1.07219911324182
+    },
+    {
+      "symbol": "BTRUSDT",
+      "status": "closed",
+      "baseOrderPrice": 0.03121,
+      "avgPrice": 0.0303356658742547,
+      "totalQty": 1813.0300000000002,
+      "totalSpent": 54.99947230000001,
+      "safetyOrdersFilled": 2,
+      "nextSOPrice": 0.028900199999999997,
+      "nextSOSize": 20,
+      "tpPrice": 0.03063902253299725,
+      "slPrice": null,
+      "openedAt": "2026-08-12T01:27:04.847Z",
+      "orders": [
+        {
+          "tag": "base",
+          "qty": 480.61,
+          "price": 0.03121,
+          "budget": 15,
+          "orderId": "dryrun_1786498024847",
+          "filledAt": "2026-08-12T01:27:04.847Z"
+        },
+        {
+          "tag": "so1",
+          "qty": 654.23,
+          "price": 0.03057,
+          "budget": 20,
+          "orderId": "dryrun_1786498563085",
+          "filledAt": "2026-08-12T01:36:03.085Z"
+        },
+        {
+          "tag": "so2",
+          "qty": 678.19,
+          "price": 0.02949,
+          "budget": 20,
+          "orderId": "dryrun_1786498742525",
+          "filledAt": "2026-08-12T01:39:02.525Z"
+        }
+      ],
+      "tpPriceBase": 0.031522100000000004,
+      "tpPriceAverage": 0.03063902253299725,
+      "exitPrice": 0.0307,
+      "closedAt": "2026-08-12T02:10:02.808Z",
+      "reason": "take_profit",
+      "pnlUsdt": 0.6605487000000022,
+      "pnlPct": 1.2010091595006123
+    },
+    {
+      "symbol": "BTRUSDT",
+      "status": "closed",
+      "baseOrderPrice": 0.03103,
+      "avgPrice": 0.03103,
+      "totalQty": 483.4,
+      "totalSpent": 14.999901999999999,
+      "safetyOrdersFilled": 0,
+      "nextSOPrice": 0.0304094,
+      "nextSOSize": 20,
+      "tpPrice": 0.0313403,
+      "slPrice": null,
+      "openedAt": "2026-08-12T02:11:05.007Z",
+      "orders": [
+        {
+          "tag": "base",
+          "qty": 483.4,
+          "price": 0.03103,
+          "budget": 15,
+          "orderId": "dryrun_1786500665007",
+          "filledAt": "2026-08-12T02:11:05.007Z"
+        }
+      ],
+      "tpPriceBase": 0.0313403,
+      "tpPriceAverage": 0.0313403,
+      "exitPrice": 0.0317,
+      "closedAt": "2026-08-12T02:22:43.019Z",
+      "reason": "take_profit",
+      "pnlUsdt": 0.3238780000000002,
+      "pnlPct": 2.159200773445055
+    },
+    {
+      "symbol": "BTRUSDT",
+      "status": "closed",
+      "baseOrderPrice": 0.03126,
+      "avgPrice": 0.03126,
+      "totalQty": 479.84,
+      "totalSpent": 14.999798400000001,
+      "safetyOrdersFilled": 0,
+      "nextSOPrice": 0.030634800000000004,
+      "nextSOSize": 20,
+      "tpPrice": 0.031572600000000006,
+      "slPrice": null,
+      "openedAt": "2026-08-12T02:24:43.014Z",
+      "orders": [
+        {
+          "tag": "base",
+          "qty": 479.84,
+          "price": 0.03126,
+          "budget": 15,
+          "orderId": "dryrun_1786501483013",
+          "filledAt": "2026-08-12T02:24:43.014Z"
+        }
+      ],
+      "tpPriceBase": 0.031572600000000006,
+      "tpPriceAverage": 0.031572600000000006,
+      "exitPrice": 0.03158,
+      "closedAt": "2026-08-12T02:27:43.128Z",
+      "reason": "take_profit",
+      "pnlUsdt": 0.15354879999999707,
+      "pnlPct": 1.0236724248240368
+    },
+    {
+      "symbol": "HOLOUSDT",
+      "status": "closed",
+      "baseOrderPrice": 0.09671,
+      "avgPrice": 0.09552201419213976,
+      "totalQty": 366.4,
+      "totalSpent": 34.999266000000006,
+      "safetyOrdersFilled": 1,
+      "nextSOPrice": 0.09275699999999999,
+      "nextSOSize": 20,
+      "tpPrice": 0.09647723433406116,
+      "slPrice": null,
+      "openedAt": "2026-08-12T02:02:03.318Z",
+      "orders": [
+        {
+          "tag": "base",
+          "qty": 155.1,
+          "price": 0.09671,
+          "budget": 15,
+          "orderId": "dryrun_1786500123318",
+          "filledAt": "2026-08-12T02:02:03.318Z"
+        },
+        {
+          "tag": "so1",
+          "qty": 211.3,
+          "price": 0.09465,
+          "budget": 20,
+          "orderId": "dryrun_1786500662645",
+          "filledAt": "2026-08-12T02:11:02.645Z"
+        }
+      ],
+      "tpPriceBase": 0.0976771,
+      "tpPriceAverage": 0.09647723433406116,
+      "exitPrice": 0.09658,
+      "closedAt": "2026-08-12T02:31:42.543Z",
+      "reason": "take_profit",
+      "pnlUsdt": 0.3876459999999899,
+      "pnlPct": 1.1075832276025155
+    },
+    {
+      "symbol": "BTRUSDT",
+      "status": "closed",
+      "baseOrderPrice": 0.03156,
+      "avgPrice": 0.03156,
+      "totalQty": 475.28,
+      "totalSpent": 14.999836799999999,
+      "safetyOrdersFilled": 0,
+      "nextSOPrice": 0.030928799999999996,
+      "nextSOSize": 20,
+      "tpPrice": 0.0318756,
+      "slPrice": null,
+      "openedAt": "2026-08-12T02:29:43.012Z",
+      "orders": [
+        {
+          "tag": "base",
+          "qty": 475.28,
+          "price": 0.03156,
+          "budget": 15,
+          "orderId": "dryrun_1786501783012",
+          "filledAt": "2026-08-12T02:29:43.012Z"
+        }
+      ],
+      "tpPriceBase": 0.0318756,
+      "tpPriceAverage": 0.0318756,
+      "exitPrice": 0.03194,
+      "closedAt": "2026-08-12T02:32:42.740Z",
+      "reason": "take_profit",
+      "pnlUsdt": 0.18060640000000253,
+      "pnlPct": 1.2040557667934264
+    },
+    {
+      "symbol": "HOLOUSDT",
+      "status": "closed",
+      "baseOrderPrice": 0.09677,
+      "avgPrice": 0.09543050443081119,
+      "totalQty": 366.75,
+      "totalSpent": 34.9991375,
+      "safetyOrdersFilled": 1,
+      "nextSOPrice": 0.092561,
+      "nextSOSize": 20,
+      "tpPrice": 0.0963848094751193,
+      "slPrice": null,
+      "openedAt": "2026-08-12T02:32:43.209Z",
+      "orders": [
+        {
+          "tag": "base",
+          "qty": 155,
+          "price": 0.09677,
+          "budget": 15,
+          "orderId": "dryrun_1786501963209",
+          "filledAt": "2026-08-12T02:32:43.209Z"
+        },
+        {
+          "tag": "so1",
+          "qty": 211.75,
+          "price": 0.09445,
+          "budget": 20,
+          "orderId": "dryrun_1786502082872",
+          "filledAt": "2026-08-12T02:34:42.872Z"
+        }
+      ],
+      "tpPriceBase": 0.0977377,
+      "tpPriceAverage": 0.0963848094751193,
+      "exitPrice": 0.09651,
+      "closedAt": "2026-08-12T02:49:42.729Z",
+      "reason": "take_profit",
+      "pnlUsdt": 0.39590499999999496,
+      "pnlPct": 1.131185018487941
+    },
+    {
+      "symbol": "BTRUSDT",
+      "status": "closed",
+      "baseOrderPrice": 0.03334,
+      "avgPrice": 0.03255507031915901,
+      "totalQty": 1689.44,
+      "totalSpent": 54.999838,
+      "safetyOrdersFilled": 2,
+      "nextSOPrice": 0.031242399999999997,
+      "nextSOSize": 20,
+      "tpPrice": 0.0328806210223506,
+      "slPrice": null,
+      "openedAt": "2026-08-12T02:33:43.024Z",
+      "orders": [
+        {
+          "tag": "base",
+          "qty": 449.91,
+          "price": 0.03334,
+          "budget": 15,
+          "orderId": "dryrun_1786502023024",
+          "filledAt": "2026-08-12T02:33:43.024Z"
+        },
+        {
+          "tag": "so1",
+          "qty": 612.18,
+          "price": 0.03267,
+          "budget": 20,
+          "orderId": "dryrun_1786502263020",
+          "filledAt": "2026-08-12T02:37:43.020Z"
+        },
+        {
+          "tag": "so2",
+          "qty": 627.35,
+          "price": 0.03188,
+          "budget": 20,
+          "orderId": "dryrun_1786502683071",
+          "filledAt": "2026-08-12T02:44:43.071Z"
+        }
+      ],
+      "tpPriceBase": 0.0336734,
+      "tpPriceAverage": 0.0328806210223506,
+      "exitPrice": 0.03295,
+      "closedAt": "2026-08-12T02:52:42.641Z",
+      "reason": "take_profit",
+      "pnlUsdt": 0.6672100000000021,
+      "pnlPct": 1.2131126640773051
+    },
+    {
+      "symbol": "HOLOUSDT",
+      "status": "closed",
+      "baseOrderPrice": 0.09761,
+      "avgPrice": 0.09761,
+      "totalQty": 153.67,
+      "totalSpent": 14.999728699999999,
+      "safetyOrdersFilled": 0,
+      "nextSOPrice": 0.0956578,
+      "nextSOSize": 20,
+      "tpPrice": 0.09858610000000001,
+      "slPrice": null,
+      "openedAt": "2026-08-12T02:50:43.041Z",
+      "orders": [
+        {
+          "tag": "base",
+          "qty": 153.67,
+          "price": 0.09761,
+          "budget": 15,
+          "orderId": "dryrun_1786503043041",
+          "filledAt": "2026-08-12T02:50:43.042Z"
+        }
+      ],
+      "tpPriceBase": 0.09858610000000001,
+      "tpPriceAverage": 0.09858610000000001,
+      "exitPrice": 0.09911,
+      "closedAt": "2026-08-12T02:55:42.650Z",
+      "reason": "take_profit",
+      "pnlUsdt": 0.23050500000000018,
+      "pnlPct": 1.536727794283374
+    },
+    {
+      "symbol": "BTRUSDT",
+      "status": "closed",
+      "baseOrderPrice": 0.03231,
+      "avgPrice": 0.03231,
+      "totalQty": 464.25,
+      "totalSpent": 14.999917499999999,
+      "safetyOrdersFilled": 0,
+      "nextSOPrice": 0.0316638,
+      "nextSOSize": 20,
+      "tpPrice": 0.0326331,
+      "slPrice": null,
+      "openedAt": "2026-08-12T02:53:42.953Z",
+      "orders": [
+        {
+          "tag": "base",
+          "qty": 464.25,
+          "price": 0.03231,
+          "budget": 15,
+          "orderId": "dryrun_1786503222953",
+          "filledAt": "2026-08-12T02:53:42.953Z"
+        }
+      ],
+      "tpPriceBase": 0.0326331,
+      "tpPriceAverage": 0.0326331,
+      "exitPrice": 0.03331,
+      "closedAt": "2026-08-12T02:56:42.638Z",
+      "reason": "take_profit",
+      "pnlUsdt": 0.4642500000000004,
+      "pnlPct": 3.0950170225936273
+    },
+    {
+      "symbol": "HOLOUSDT",
+      "status": "closed",
+      "baseOrderPrice": 0.09895,
+      "avgPrice": 0.09759335368914171,
+      "totalQty": 358.62,
+      "totalSpent": 34.9989285,
+      "safetyOrdersFilled": 1,
+      "nextSOPrice": 0.094668,
+      "nextSOSize": 20,
+      "tpPrice": 0.09856928722603313,
+      "slPrice": null,
+      "openedAt": "2026-08-12T02:56:43.066Z",
+      "orders": [
+        {
+          "tag": "base",
+          "qty": 151.59,
+          "price": 0.09895,
+          "budget": 15,
+          "orderId": "dryrun_1786503403066",
+          "filledAt": "2026-08-12T02:56:43.066Z"
+        },
+        {
+          "tag": "so1",
+          "qty": 207.03,
+          "price": 0.0966,
+          "budget": 20,
+          "orderId": "dryrun_1786503762638",
+          "filledAt": "2026-08-12T03:02:42.638Z"
+        }
+      ],
+      "tpPriceBase": 0.0999395,
+      "tpPriceAverage": 0.09856928722603313,
+      "exitPrice": 0.09879,
+      "closedAt": "2026-08-12T03:05:42.663Z",
+      "reason": "take_profit",
+      "pnlUsdt": 0.42914130000000106,
+      "pnlPct": 1.2261555378759699
+    },
+    {
+      "symbol": "HOLOUSDT",
+      "status": "closed",
+      "baseOrderPrice": 0.09917,
+      "avgPrice": 0.09917,
+      "totalQty": 151.25,
+      "totalSpent": 14.9994625,
+      "safetyOrdersFilled": 0,
+      "nextSOPrice": 0.0971866,
+      "nextSOSize": 20,
+      "tpPrice": 0.10016169999999999,
+      "slPrice": null,
+      "openedAt": "2026-08-12T03:06:42.940Z",
+      "orders": [
+        {
+          "tag": "base",
+          "qty": 151.25,
+          "price": 0.09917,
+          "budget": 15,
+          "orderId": "dryrun_1786504002940",
+          "filledAt": "2026-08-12T03:06:42.941Z"
+        }
+      ],
+      "tpPriceBase": 0.10016169999999999,
+      "tpPriceAverage": 0.10016169999999999,
+      "exitPrice": 0.1011,
+      "closedAt": "2026-08-12T03:24:43.045Z",
+      "reason": "take_profit",
+      "pnlUsdt": 0.2919125000000002,
+      "pnlPct": 1.946153070485027
+    },
+    {
+      "symbol": "HOLOUSDT",
+      "status": "closed",
+      "baseOrderPrice": 0.09979,
+      "avgPrice": 0.09726798404782118,
+      "totalQty": 565.4399999999999,
+      "totalSpent": 54.9992089,
+      "safetyOrdersFilled": 2,
+      "nextSOPrice": 0.09325679999999999,
+      "nextSOSize": 20,
+      "tpPrice": 0.0982406638882994,
+      "slPrice": null,
+      "openedAt": "2026-08-12T03:26:43.090Z",
+      "orders": [
+        {
+          "tag": "base",
+          "qty": 150.31,
+          "price": 0.09979,
+          "budget": 15,
+          "orderId": "dryrun_1786505203090",
+          "filledAt": "2026-08-12T03:26:43.091Z"
+        },
+        {
+          "tag": "so1",
+          "qty": 204.96,
+          "price": 0.09758,
+          "budget": 20,
+          "orderId": "dryrun_1786505443049",
+          "filledAt": "2026-08-12T03:30:43.050Z"
+        },
+        {
+          "tag": "so2",
+          "qty": 210.17,
+          "price": 0.09516,
+          "budget": 20,
+          "orderId": "dryrun_1786505803048",
+          "filledAt": "2026-08-12T03:36:43.048Z"
+        }
+      ],
+      "tpPriceBase": 0.1007879,
+      "tpPriceAverage": 0.0982406638882994,
+      "exitPrice": 0.09825,
+      "closedAt": "2026-08-12T03:43:44.081Z",
+      "reason": "take_profit",
+      "pnlUsdt": 0.5552710999999946,
+      "pnlPct": 1.0095983398772024
+    },
+    {
+      "symbol": "HOLOUSDT",
+      "status": "closed",
+      "baseOrderPrice": 0.09722,
+      "avgPrice": 0.09722,
+      "totalQty": 154.28,
+      "totalSpent": 14.9991016,
+      "safetyOrdersFilled": 0,
+      "nextSOPrice": 0.0952756,
+      "nextSOSize": 20,
+      "tpPrice": 0.09819220000000001,
+      "slPrice": null,
+      "openedAt": "2026-08-12T03:45:43.381Z",
+      "orders": [
+        {
+          "tag": "base",
+          "qty": 154.28,
+          "price": 0.09722,
+          "budget": 15,
+          "orderId": "dryrun_1786506343381",
+          "filledAt": "2026-08-12T03:45:43.381Z"
+        }
+      ],
+      "tpPriceBase": 0.09819220000000001,
+      "tpPriceAverage": 0.09819220000000001,
+      "exitPrice": 0.1005,
+      "closedAt": "2026-08-12T03:49:43.582Z",
+      "reason": "take_profit",
+      "pnlUsdt": 0.5060384000000008,
+      "pnlPct": 3.3737914009463124
+    },
+    {
+      "symbol": "HOLOUSDT",
+      "status": "closed",
+      "baseOrderPrice": 0.10071,
+      "avgPrice": 0.0920228939640065,
+      "totalQty": 1249.67,
+      "totalSpent": 114.9982499,
+      "safetyOrdersFilled": 5,
+      "nextSOPrice": null,
+      "nextSOSize": null,
+      "tpPrice": 0.09294312290364656,
+      "slPrice": 0.08742174926580616,
+      "openedAt": "2026-08-12T03:51:43.085Z",
+      "orders": [
+        {
+          "tag": "base",
+          "qty": 148.94,
+          "price": 0.10071,
+          "budget": 15,
+          "orderId": "dryrun_1786506703085",
+          "filledAt": "2026-08-12T03:51:43.085Z"
+        },
+        {
+          "tag": "so1",
+          "qty": 204.54,
+          "price": 0.09778,
+          "budget": 20,
+          "orderId": "dryrun_1786506883176",
+          "filledAt": "2026-08-12T03:54:43.176Z"
+        },
+        {
+          "tag": "so2",
+          "qty": 210.08,
+          "price": 0.0952,
+          "budget": 20,
+          "orderId": "dryrun_1786507063355",
+          "filledAt": "2026-08-12T03:57:43.355Z"
+        },
+        {
+          "tag": "so3",
+          "qty": 222.49,
+          "price": 0.08989,
+          "budget": 20,
+          "orderId": "dryrun_1786507363175",
+          "filledAt": "2026-08-12T04:02:43.175Z"
+        },
+        {
+          "tag": "so4",
+          "qty": 229.46,
+          "price": 0.08716,
+          "budget": 20,
+          "orderId": "dryrun_1786515072200",
+          "filledAt": "2026-08-12T06:11:12.200Z"
+        },
+        {
+          "tag": "so5",
+          "qty": 234.16,
+          "price": 0.08541,
+          "budget": 20,
+          "orderId": "dryrun_1786515491696",
+          "filledAt": "2026-08-12T06:18:11.696Z"
+        }
+      ],
+      "tpPriceBase": 0.10171709999999999,
+      "tpPriceAverage": 0.09294312290364656,
+      "exitPrice": 0.08505,
+      "closedAt": "2026-08-12T06:19:11.695Z",
+      "reason": "stop_loss",
+      "pnlUsdt": -8.713816399999995,
+      "pnlPct": -7.57734696621674
+    },
+    {
+      "symbol": "VELVETUSDT",
+      "status": "closed",
+      "baseOrderPrice": 0.62288,
+      "avgPrice": 0.5828623760432008,
+      "totalQty": 162.96,
+      "totalSpent": 94.9832528,
+      "safetyOrdersFilled": 4,
+      "nextSOPrice": 0.5396664,
+      "nextSOSize": 20,
+      "tpPrice": 0.5886909998036328,
+      "slPrice": null,
+      "openedAt": "2026-08-12T02:06:03.229Z",
+      "orders": [
+        {
+          "tag": "base",
+          "qty": 24.08,
+          "price": 0.62288,
+          "budget": 15,
+          "orderId": "dryrun_1786500363229",
+          "filledAt": "2026-08-12T02:06:03.229Z"
+        },
+        {
+          "tag": "so1",
+          "qty": 33.34,
+          "price": 0.59972,
+          "budget": 20,
+          "orderId": "dryrun_1786502562358",
+          "filledAt": "2026-08-12T02:42:42.358Z"
+        },
+        {
+          "tag": "so2",
+          "qty": 34.23,
+          "price": 0.58416,
+          "budget": 20,
+          "orderId": "dryrun_1786502802225",
+          "filledAt": "2026-08-12T02:46:42.225Z"
+        },
+        {
+          "tag": "so3",
+          "qty": 35,
+          "price": 0.57139,
+          "budget": 20,
+          "orderId": "dryrun_1786503522391",
+          "filledAt": "2026-08-12T02:58:42.391Z"
+        },
+        {
+          "tag": "so4",
+          "qty": 36.31,
+          "price": 0.55068,
+          "budget": 20,
+          "orderId": "dryrun_1786508502474",
+          "filledAt": "2026-08-12T04:21:42.474Z"
+        }
+      ],
+      "tpPriceBase": 0.6291088,
+      "tpPriceAverage": 0.5886909998036328,
+      "exitPrice": 0.7338,
+      "closedAt": "2026-08-13T02:38:14.776Z",
+      "reason": "take_profit",
+      "pnlUsdt": 24.596795200000003,
+      "pnlPct": 25.895928466244317
+    },
+    {
+      "symbol": "APRUSDT",
+      "status": "closed",
+      "baseOrderPrice": 0.57115,
+      "avgPrice": 0.5445246662517504,
+      "totalQty": 64.27,
+      "totalSpent": 34.9966003,
+      "safetyOrdersFilled": 1,
+      "nextSOPrice": 0.5156073999999999,
+      "nextSOSize": 20,
+      "tpPrice": 0.549969912914268,
+      "slPrice": null,
+      "openedAt": "2026-08-13T02:41:26.981Z",
+      "orders": [
+        {
+          "tag": "base",
+          "qty": 26.26,
+          "price": 0.57115,
+          "budget": 15,
+          "orderId": "dryrun_1786588886981",
+          "filledAt": "2026-08-13T02:41:26.981Z"
+        },
+        {
+          "tag": "so1",
+          "qty": 38.01,
+          "price": 0.52613,
+          "budget": 20,
+          "orderId": "dryrun_1786588934244",
+          "filledAt": "2026-08-13T02:42:14.244Z"
+        }
+      ],
+      "tpPriceBase": 0.5768615,
+      "tpPriceAverage": 0.549969912914268,
+      "exitPrice": 0.55612,
+      "closedAt": "2026-08-13T02:45:14.328Z",
+      "reason": "take_profit",
+      "pnlUsdt": 0.7452320999999955,
+      "pnlPct": 2.1294414131992
+    },
+    {
+      "symbol": "APRUSDT",
+      "status": "closed",
+      "baseOrderPrice": 0.55989,
+      "avgPrice": 0.55989,
+      "totalQty": 26.79,
+      "totalSpent": 14.9994531,
+      "safetyOrdersFilled": 0,
+      "nextSOPrice": 0.5486922,
+      "nextSOSize": 20,
+      "tpPrice": 0.5654889,
+      "slPrice": null,
+      "openedAt": "2026-08-13T02:46:14.591Z",
+      "orders": [
+        {
+          "tag": "base",
+          "qty": 26.79,
+          "price": 0.55989,
+          "budget": 15,
+          "orderId": "dryrun_1786589174591",
+          "filledAt": "2026-08-13T02:46:14.591Z"
+        }
+      ],
+      "tpPriceBase": 0.5654889,
+      "tpPriceAverage": 0.5654889,
+      "exitPrice": 0.56534,
+      "closedAt": "2026-08-13T03:02:14.657Z",
+      "reason": "take_profit",
+      "pnlUsdt": 0.1460054999999988,
+      "pnlPct": 0.9734054903641706
+    },
+    {
+      "symbol": "BTRUSDT",
+      "status": "closed",
+      "baseOrderPrice": 0.0331,
+      "avgPrice": 0.031456015761637736,
+      "totalQty": 2384.27,
+      "totalSpent": 74.9996347,
+      "safetyOrdersFilled": 3,
+      "nextSOPrice": 0.0294882,
+      "nextSOSize": 20,
+      "tpPrice": 0.03177057591925411,
+      "slPrice": null,
+      "openedAt": "2026-08-12T02:57:44.123Z",
+      "orders": [
+        {
+          "tag": "base",
+          "qty": 453.17,
+          "price": 0.0331,
+          "budget": 15,
+          "orderId": "dryrun_1786503464123",
+          "filledAt": "2026-08-12T02:57:44.123Z"
+        },
+        {
+          "tag": "so1",
+          "qty": 625,
+          "price": 0.032,
+          "budget": 20,
+          "orderId": "dryrun_1786504362673",
+          "filledAt": "2026-08-12T03:12:42.673Z"
+        },
+        {
+          "tag": "so2",
+          "qty": 641.43,
+          "price": 0.03118,
+          "budget": 20,
+          "orderId": "dryrun_1786504902638",
+          "filledAt": "2026-08-12T03:21:42.638Z"
+        },
+        {
+          "tag": "so3",
+          "qty": 664.67,
+          "price": 0.03009,
+          "budget": 20,
+          "orderId": "dryrun_1786506462973",
+          "filledAt": "2026-08-12T03:47:42.973Z"
+        }
+      ],
+      "tpPriceBase": 0.033430999999999995,
+      "tpPriceAverage": 0.03177057591925411,
+      "exitPrice": null,
+      "closedAt": "2026-08-13T03:10:48.655Z",
+      "reason": "manual_untracked",
+      "pnlUsdt": null,
+      "pnlPct": null
+    },
+    {
+      "symbol": "VELVETUSDT",
+      "status": "closed",
+      "baseOrderPrice": 0.74229,
+      "avgPrice": 0.7106575549237529,
+      "totalQty": 77.38,
+      "totalSpent": 54.9906816,
+      "safetyOrdersFilled": 2,
+      "nextSOPrice": 0.6767292,
+      "nextSOSize": 20,
+      "tpPrice": 0.7177641304729905,
+      "slPrice": null,
+      "openedAt": "2026-08-13T02:40:13.572Z",
+      "orders": [
+        {
+          "tag": "base",
+          "qty": 20.2,
+          "price": 0.74229,
+          "budget": 15,
+          "orderId": "dryrun_1786588813571",
+          "filledAt": "2026-08-13T02:40:13.572Z"
+        },
+        {
+          "tag": "so1",
+          "qty": 28.22,
+          "price": 0.70866,
+          "budget": 20,
+          "orderId": "dryrun_1786589173754",
+          "filledAt": "2026-08-13T02:46:13.754Z"
+        },
+        {
+          "tag": "so2",
+          "qty": 28.96,
+          "price": 0.69054,
+          "budget": 20,
+          "orderId": "dryrun_1786589593805",
+          "filledAt": "2026-08-13T02:53:13.805Z"
+        }
+      ],
+      "tpPriceBase": 0.7497129,
+      "tpPriceAverage": 0.7177641304729905,
+      "exitPrice": 0.72012,
+      "closedAt": "2026-08-13T03:29:40.532Z",
+      "reason": "take_profit",
+      "pnlUsdt": 0.7322039999999967,
+      "pnlPct": 1.331505590939969
+    }
+  ],
+  "totalPnlUsdt": 26.88561449999997,
+  "pendingReopens": {
+    "VELVETUSDT": {
+      "readyAt": 1786591840540,
+      "closedAt": 1786591780540
+    }
+  },
+  "trendStatus": {
+    "HOLOUSDT": "bullish",
+    "VELVETUSDT": "bullish",
+    "BTRUSDT": "bullish",
+    "FETUSDT": "bullish",
+    "APRUSDT": "bullish"
+  }
+}
