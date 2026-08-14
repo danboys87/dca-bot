@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Crypto Volume/Cap Screener Live</title>
+  <style>
+    /* Reset & Dark Theme Styling */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: #0b1426;
+      color: #ffffff;
+      padding: 24px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .container {
+      max-width: 1100px;
+      width: 100%;
+    }
+
+    /* Header */
+    .header {
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+
+    .header-title h1 {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .header-title p {
+      color: #94a3b8;
+      font-size: 14px;
+    }
+
+    .status-badge {
+      font-size: 12px;
+      color: #38bdf8;
+      background-color: rgba(56, 189, 248, 0.1);
+      padding: 6px 12px;
+      border-radius: 20px;
+      border: 1px solid rgba(56, 189, 248, 0.2);
+    }
+
+    /* Table Container */
+    .table-card {
+      background-color: #111c35;
+      border-radius: 12px;
+      border: 1px solid #1e293b;
+      overflow-x: auto;
+      margin-bottom: 24px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 14px;
+    }
+
+    th {
+      background-color: #0f172a;
+      color: #94a3b8;
+      font-weight: 600;
+      padding: 14px 16px;
+      border-bottom: 1px solid #1e293b;
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 16px;
+      border-bottom: 1px solid #1e2d4a;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+
+    /* Baris tabel yang dapat diklik */
+    tbody tr {
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+
+    tbody tr:hover {
+      background-color: #1e2d4a;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .loading-row {
+      text-align: center;
+      color: #94a3b8;
+      padding: 30px;
+      cursor: default;
+    }
+
+    .loading-row:hover {
+      background-color: transparent;
+    }
+
+    /* Coin Column Styling */
+    .coin-name {
+      font-weight: 600;
+      color: #ffffff;
+    }
+
+    .coin-symbol {
+      color: #64748b;
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+
+    /* Badges */
+    .badge-ratio {
+      background-color: #0284c7;
+      color: #ffffff;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 13px;
+      display: inline-block;
+    }
+
+    .badge-trend-up {
+      color: #22c55e;
+      font-weight: 600;
+    }
+
+    .badge-spike {
+      background-color: #22c55e;
+      color: #ffffff;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-weight: 700;
+      font-size: 11px;
+      display: inline-block;
+    }
+
+    .badge-normal {
+      color: #64748b;
+      font-size: 12px;
+    }
+
+    /* Chart Section */
+    .chart-card {
+      background-color: #111c35;
+      border-radius: 12px;
+      border: 1px solid #1e293b;
+      padding: 16px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .tradingview-widget-container {
+      height: 450px;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-title">
+        <h1>Crypto Volume/Cap Screener</h1>
+        <p>Kriteria: Rasio Volume/Market Cap 24j &gt; 10% &amp; Tren 24j Positif (+)</p>
+      </div>
+      <div id="update-status" class="status-badge">Mengambil Data...</div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-card">
+      <table>
+        <thead>
+          <tr>
+            <th>No</th>
+            <th>Koin</th>
+            <th>Market Cap ($)</th>
+            <th>Supply (%)</th>
+            <th>Harga ($)</th>
+            <th>Rasio Vol/Cap (24j)</th>
+            <th>Tren 24j</th>
+            <th>Volume 24j ($)</th>
+            <th>Vol Spike (&gt;1.5x 7d)</th>
+          </tr>
+        </thead>
+        <tbody id="crypto-table-body">
+          <tr>
+            <td colspan="9" class="loading-row">Memuat data terbaru dari pasar...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Chart TradingView -->
+    <div class="chart-card">
+      <div class="tradingview-widget-container">
+        <div id="tradingview_chart"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Library TradingView -->
+  <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+
+  <!-- JavaScript Main Application Logic -->
+  <script>
+    // Fungsi untuk memperbarui Chart TradingView
+    function updateChart(symbol) {
+      new TradingView.widget({
+        "width": "100%",
+        "height": 450,
+        "symbol": symbol,
+        "interval": "D",
+        "timezone": "Asia/Jakarta",
+        "theme": "dark",
+        "style": "1",
+        "locale": "id",
+        "toolbar_bg": "#f1f3f6",
+        "enable_publishing": false,
+        "allow_symbol_change": true,
+        "container_id": "tradingview_chart",
+        "studies": [
+          {
+            "id": "MASimple@tv-basicstudies", // Indikator MA 21
+            "inputs": {
+              "length": 21
+            }
+          },
+          {
+            "id": "RSI@tv-basicstudies", // Indikator RSI (Relative Strength Index)
+            "inputs": {
+              "length": 14
+            }
+          },
+          {
+            "id": "Volume@tv-basicstudies" // Indikator Volume Bar
+          }
+        ]
+      });
+    }
+
+    // Load Chart default awal
+    updateChart("BINANCE:PEPEUSDT");
+
+    // Fungsi Fetch & Filter Data dari API CoinGecko
+    async function fetchScreenerData() {
+      const tableBody = document.getElementById('crypto-table-body');
+      const statusBadge = document.getElementById('update-status');
+
+      try {
+        statusBadge.innerText = 'Memperbarui...';
+
+        // 1. Ambil 200 koin teratas berdasarkan Market Cap
+        const response = await fetch(
+          'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=200&page=1&sparkline=false&price_change_percentage=24h'
+        );
+
+        if (!response.ok) throw new Error('Gagal mengambil data pasar');
+
+        const data = await response.json();
+
+        // 2. Filter Tahap Pertama (Rasio > 10% & Price Change > 0)
+        const initialFiltered = data.map(coin => {
+          const ratio = (coin.total_volume / coin.market_cap) * 100;
+          return {
+            ...coin,
+            vol_cap_ratio: ratio
+          };
+        })
+        .filter(coin => coin.vol_cap_ratio > 10 && coin.price_change_percentage_24h > 0)
+        .sort((a, b) => b.vol_cap_ratio - a.vol_cap_ratio);
+
+        if (initialFiltered.length === 0) {
+          tableBody.innerHTML = `<tr><td colspan="9" class="loading-row">Tidak ada koin yang memenuhi kriteria saat ini.</td></tr>`;
+          statusBadge.innerText = 'Selesai';
+          return;
+        }
+
+        // 3. Fetch Data Histori 7 Hari HANYA untuk koin yang lolos filter
+        const detailedData = await Promise.all(
+          initialFiltered.map(async (coin) => {
+            try {
+              const historyRes = await fetch(
+                `https://api.coingecko.com/api/v3/coins/${coin.id}/market_chart?vs_currency=usd&days=7`
+              );
+              
+              if (!historyRes.ok) return { ...coin, isSpike: false };
+
+              const historyData = await historyRes.json();
+              const totalVolumes = historyData.total_volumes;
+              
+              // Hitung Rata-Rata Volume 7 Hari
+              const sumVolume = totalVolumes.reduce((acc, curr) => acc + curr[1], 0);
+              const avgVol7d = sumVolume / totalVolumes.length;
+
+              // Filter Spike 1.5x (50% lebih tinggi dari rata-rata 7 hari)
+              const isSpike = coin.total_volume > (avgVol7d * 1.5);
+
+              return { ...coin, isSpike };
+            } catch (e) {
+              return { ...coin, isSpike: false };
+            }
+          })
+        );
+
+        // 4. Render Data ke Tabel HTML
+        tableBody.innerHTML = '';
+
+        detailedData.forEach((coin, index) => {
+          const row = document.createElement('tr');
+          const tvSymbol = `BINANCE:${coin.symbol.toUpperCase()}USDT`;
+          
+          const spikeBadge = coin.isSpike 
+            ? `<span class="badge-spike">🔥 SPIKE 1.5X</span>`
+            : `<span class="badge-normal">Normal</span>`;
+
+          const marketCapFormatted = coin.market_cap 
+            ? `$${coin.market_cap.toLocaleString('en-US')}` 
+            : '-';
+
+          // Hitung Persentase Supply Beredar terhadap Max Supply (atau Total Supply jika Max Supply null)
+          const maxSupply = coin.max_supply || coin.total_supply;
+          let supplyPercentageFormatted = '-';
+
+          if (coin.circulating_supply && maxSupply) {
+            const supplyPercent = (coin.circulating_supply / maxSupply) * 100;
+            // Dibatasi maks 100% jika terjadi kelebihan angka dari rilis token
+            const cappedPercent = Math.min(supplyPercent, 100);
+            supplyPercentageFormatted = `${cappedPercent.toFixed(2)}%`;
+          } else if (coin.circulating_supply && !maxSupply) {
+            supplyPercentageFormatted = '∞ (Unlimited)';
+          }
+
+          row.setAttribute('data-symbol', tvSymbol);
+          row.innerHTML = `
+            <td>${index + 1}</td>
+            <td>
+              <span class="coin-name">${coin.name}</span> 
+              <span class="coin-symbol">(${coin.symbol})</span>
+            </td>
+            <td>${marketCapFormatted}</td>
+            <td>${supplyPercentageFormatted}</td>
+            <td>$${coin.current_price < 1 ? coin.current_price.toFixed(6) : coin.current_price.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+            <td><span class="badge-ratio">${coin.vol_cap_ratio.toFixed(2)}%</span></td>
+            <td><span class="badge-trend-up">+${coin.price_change_percentage_24h.toFixed(2)}%</span></td>
+            <td>$${coin.total_volume.toLocaleString('en-US')}</td>
+            <td>${spikeBadge}</td>
+          `;
+
+          // Event Listener saat baris diklik
+          row.addEventListener('click', function() {
+            const selectedSymbol = this.getAttribute('data-symbol');
+            updateChart(selectedSymbol);
+          });
+
+          tableBody.appendChild(row);
+        });
+
+        // Tampilkan chart koin peringkat pertama secara otomatis
+        if (detailedData.length > 0) {
+          const topCoinSymbol = `BINANCE:${detailedData[0].symbol.toUpperCase()}USDT`;
+          updateChart(topCoinSymbol);
+        }
+
+        // Timestamp Update Status
+        const now = new Date();
+        statusBadge.innerText = `Update: ${now.toLocaleTimeString('id-ID')}`;
+
+      } catch (error) {
+        console.error('Error fetching crypto data:', error);
+        statusBadge.innerText = 'Gagal Memuat';
+        statusBadge.style.color = '#ef4444';
+      }
+    }
+
+    // Jalankan saat pertama dibuka
+    fetchScreenerData();
+
+    // Refresh otomatis setiap 5 menit (300.000 ms) agar aman untuk API
+    setInterval(fetchScreenerData, 300000);
+  </script>
+
+</body>
+</html>
