@@ -2,6 +2,7 @@
  * Telegram Notifications — DCA Bot
  */
 import { log } from './logger.js';
+import { config } from './config.js';
 
 const getToken  = () => process.env.TELEGRAM_BOT_TOKEN;
 const getChatId = () => process.env.TELEGRAM_CHAT_ID;
@@ -66,15 +67,15 @@ export async function notifyDealClosed(closed) {
 }
 
 /**
- * Notif utk mode "sell sendiri" (untrack) — TIDAK ada eksekusi order dari bot,
+ * Notif utk mode "Manual Sell" (untrack) — TIDAK ada eksekusi order dari bot,
  * dan PnL SENGAJA tidak dihitung/ditampilkan karena tidak dicatat di statistik.
  */
 export async function notifyDealUntracked(closed) {
   await send(
-    `🖐 <b>Deal Ditandai Selesai (Manual)</b> — ${closed.symbol}\n` +
+    `🖐 <b>Deal Ditandai Selesai (Manual Sell)</b> — ${closed.symbol}\n` +
     `Dijual sendiri di luar bot — bot TIDAK mengeksekusi order apapun.\n` +
     `Avg entry: ${closed.avgPrice.toFixed(6)} | Safety order terpakai: ${closed.safetyOrdersFilled}\n` +
-    `<i>⚠️ PnL deal ini TIDAK dihitung ke statistik/Total PnL bot.</i>`
+    `<i>⚠️ PnL deal ini TIDAK dihitung ke statistik/Total PnL/compounding.</i>`
   );
 }
 
@@ -100,5 +101,25 @@ export async function notifyTrendChange(symbol, prevStatus, newStatus, price, ti
     `${trendLabel[prevStatus] || prevStatus} → <b>${trendLabel[newStatus] || newStatus}</b>\n` +
     `Harga sekarang: ${price}\n` +
     `<i>Info saja — SO/TP/SL tetap jalan seperti biasa.</i>`
+  );
+}
+
+// ── Compounding ──────────────────────────────────────────────────────────
+export async function notifyCompoundingAvailable(pool, threshold) {
+  await send(
+    `💰 <b>Profit Siap Di-Compound</b>\n` +
+    `Pool terkumpul: +${pool.toFixed(2)} USDT (threshold: ${threshold} USDT)\n` +
+    `Base Order saat ini: ${config.dca.baseOrderSize} USDT | Safety Order: ${config.dca.safetyOrderSize} USDT\n\n` +
+    `Ketik <b>/compound apply</b> utk terapkan sekarang, atau biarkan pool terus bertambah dulu.`
+  );
+}
+
+export async function notifyCompoundingApplied(result) {
+  await send(
+    `✅ <b>Compounding Diterapkan</b>\n` +
+    `Profit dipakai: +${result.pool.toFixed(2)} USDT\n` +
+    `Base Order: ${result.oldBase} → <b>${result.newBase}</b> USDT\n` +
+    `Safety Order: ${result.oldSO} → <b>${result.newSO}</b> USDT\n` +
+    `<i>Berlaku utk deal baru berikutnya.</i>`
   );
 }

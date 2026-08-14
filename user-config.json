@@ -12,8 +12,12 @@
     ],
     "_comment_trend": "Trend Monitor: status ditentukan dari posisi harga terhadap 1 garis EMA (trendEmaPeriod) di timeframe trendTimeframe. Harga > EMA = Bullish, harga < EMA = Bearish. Dicek tiap trendCheckIntervalMin menit, utk semua symbol yang sedang punya deal aktif. INFORMATIF SAJA lewat notifikasi Telegram saat status berubah — tidak mempengaruhi SO/TP/SL. Bisa juga dicek manual kapan saja lewat /trend SYMBOL di Telegram atau tombol ↻ di dashboard.",
     "trendEmaPeriod": 21,
-    "trendTimeframe": "1h",
-    "trendCheckIntervalMin": 30
+    "trendTimeframe": "4h",
+    "trendCheckIntervalMin": 60,
+    "_comment_compounding": "Compounding: profit (pnlUsdt) dari tiap deal closed via bot (TP/SL/Close manual) dikumpulkan ke pool. Begitu pool >= compoundingThresholdUsdt, Base Order & Safety Order size di-scale proporsional (rasio tetap sama) memakai SELURUH pool, lalu pool direset. Default MANUAL — kamu dikasih notif/opsi via Telegram (/compound apply) atau tombol di dashboard. Set compoundingAutoApply=true kalau mau langsung diterapkan otomatis tanpa konfirmasi. Deal yang ditutup lewat Manual Sell (untrack) TIDAK ikut menyumbang ke pool ini.",
+    "compoundingEnabled": true,
+    "compoundingThresholdUsdt": 10,
+    "compoundingAutoApply": false
   },
   "dca": {
     "_comment_baseOrder": "Order pertama (initial order) saat deal dibuka",

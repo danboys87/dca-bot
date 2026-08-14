@@ -13,15 +13,18 @@ import { testConnection, getCurrentPrice } from './bitget.js';
 import {
   getActiveSymbols, getDeal, getActiveDeals, getStats, getClosedDeals, hasActiveDeal,
   schedulePendingReopen, clearPendingReopen, getPendingReopens, untrackDeal,
+  getCompoundingNotified, setCompoundingNotified,
 } from './state.js';
 import { evaluateDeal } from './dcaEngine.js';
 import { openDeal, fillSafetyOrder, closeDealMarket } from './executor.js';
 import {
   notifyDealOpened, notifySafetyOrder, notifyDealClosed, notifyDealUntracked, notifyError, notifyStartup,
+  notifyCompoundingAvailable, notifyCompoundingApplied,
 } from './telegram.js';
 import { startTelegramPolling, stopTelegramPolling } from './telegramCommands.js';
 import { startApiServer } from './apiServer.js';
 import { checkAllTrends } from './trendMonitor.js';
+import { getCompoundingStatus, applyCompounding } from './compounding.js';
 
 const isDryRun = process.env.DRY_RUN === 'true';
 const args     = process.argv.slice(2);
@@ -71,6 +74,49 @@ function maybeScheduleReopen(closed) {
   log('reopen', `⏳ ${closed.symbol} dijadwalkan auto-reopen dalam ${cooldownMin} menit (alasan close: ${closed.reason})`);
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// COMPOUNDING — cek status pool tiap ada deal closed (yang punya PnL asli).
+// Default MANUAL (kasih notif, tunggu /compound apply). Bisa di-set auto-apply
+// lewat config.trading.compoundingAutoApply.
+// ─────────────────────────────────────────────────────────────────────────────
+async function maybeHandleCompounding() {
+  if (!config.trading.compoundingEnabled) return;
+
+  const status = getCompoundingStatus();
+
+  if (!status.ready) {
+    if (getCompoundingNotified()) setCompoundingNotified(false); // reset flag kalau pool turun lagi di bawah threshold (misal abis rugi)
+    return;
+  }
+
+  if (status.autoApply) {
+    const result = applyCompounding();
+    if (result.ok) {
+      await notifyCompoundingApplied(result);
+      setCompoundingNotified(false);
+    }
+    return;
+  }
+
+  if (!getCompoundingNotified()) {
+    await notifyCompoundingAvailable(status.pool, status.threshold);
+    setCompoundingNotified(true); // jangan notif berulang tiap loop, cukup sekali sampai di-apply atau pool turun lagi
+  }
+}
+
+export async function compoundNow() {
+  const result = applyCompounding();
+  if (result.ok) {
+    await notifyCompoundingApplied(result);
+    setCompoundingNotified(false);
+  }
+  return result;
+}
+
+export function compoundStatus() {
+  return getCompoundingStatus();
+}
+
 async function processPendingReopens() {
   const pending = getPendingReopens();
   const symbols = Object.keys(pending);
@@ -108,6 +154,7 @@ export async function closeDealManual(symbol) {
     const closed = await closeDealMarket(symbol, 'manual_close');
     await notifyDealClosed(closed);
     maybeScheduleReopen(closed);
+    await maybeHandleCompounding();
     return { ok: true, closed };
   } catch (e) {
     log('executor_error', `Tutup deal ${symbol} gagal: ${e.message}`);
@@ -118,7 +165,7 @@ export async function closeDealManual(symbol) {
 /**
  * Close manual TANPA eksekusi order — dipakai kalau user jual sendiri di luar bot
  * (langsung di app exchange). Bot cuma berhenti mantau deal ini. PnL TIDAK dihitung
- * ke statistik/Total PnL bot karena tidak ada harga jual asli yang bot tahu.
+ * ke statistik/Total PnL/compounding bot karena tidak ada harga jual asli yang bot tahu.
  */
 export async function closeDealUntrack(symbol) {
   if (!hasActiveDeal(symbol)) return { ok: false, error: `Deal ${symbol} tidak aktif` };
@@ -157,12 +204,14 @@ async function checkDeals() {
           const closed = await closeDealMarket(symbol, 'take_profit');
           await notifyDealClosed(closed);
           maybeScheduleReopen(closed);
+          await maybeHandleCompounding();
 
         } else if (decision.action === 'stop_loss') {
           log('dca', `🛑 SL hit: ${symbol} @ ${price} (SL=${deal.slPrice.toFixed(6)})`);
           const closed = await closeDealMarket(symbol, 'stop_loss');
           await notifyDealClosed(closed);
           maybeScheduleReopen(closed);
+          await maybeHandleCompounding();
 
         } else if (decision.action === 'place_so') {
           log('dca', `➕ SO${decision.step} trigger: ${symbol} @ ${price} (target=${deal.nextSOPrice.toFixed(6)})`);
@@ -254,6 +303,8 @@ async function showStatus() {
     }
   }
   console.log(`  Cek Tren    : EMA${config.trading.trendEmaPeriod ?? 21} @ ${(config.trading.trendTimeframe ?? '1h').toUpperCase()}, tiap ${config.trading.trendCheckIntervalMin ?? 30} menit`);
+  const cs = compoundStatus();
+  console.log(`  Compounding : ${cs.enabled ? `pool=${cs.pool.toFixed(2)}/${cs.threshold} USDT ${cs.ready ? '(siap!)' : ''}` : 'OFF'}`);
   console.log('══════════════════════════════════════\n');
 }
 
@@ -262,7 +313,7 @@ async function showStatus() {
 // ─────────────────────────────────────────────────────────────────────────────
 function startREPL() {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout, prompt: '\n[dca-bot] > ' });
-  console.log('\n📖 Perintah: status | start SYMBOL | close SYMBOL | untrack SYMBOL | reopen on/off | stop | help\n');
+  console.log('\n📖 Perintah: status | start SYMBOL | close SYMBOL | untrack SYMBOL | compound [apply] | reopen on/off | stop | help\n');
   rl.prompt();
 
   rl.on('line', async (line) => {
@@ -278,6 +329,10 @@ function startREPL() {
       case 'untrack':
         if (!arg) { console.log('Format: untrack SYMBOL  (tandai selesai TANPA sell dari bot, PnL tidak dihitung)'); break; }
         console.log(await closeDealUntrack(arg.toUpperCase())); break;
+      case 'compound':
+        if ((arg || '').toLowerCase() === 'apply') { console.log(await compoundNow()); }
+        else { console.log(compoundStatus()); }
+        break;
       case 'reopen':
         if (!arg || !['on', 'off'].includes(arg.toLowerCase())) { console.log('Format: reopen on | reopen off'); break; }
         saveConfig({ trading: { reopenAfterClose: arg.toLowerCase() === 'on' } });
@@ -285,7 +340,7 @@ function startREPL() {
         break;
       case 'stop': stopLoop(); stopTrendLoop(); stopTelegramPolling(); process.exit(0); break;
       case 'help':
-        console.log('  status | start SYMBOL | close SYMBOL | untrack SYMBOL | reopen on/off | stop'); break;
+        console.log('  status | start SYMBOL | close SYMBOL | untrack SYMBOL | compound [apply] | reopen on/off | stop'); break;
       default: console.log(`❓ Perintah tidak dikenal: "${cmd}"`);
     }
     rl.prompt();
@@ -329,9 +384,9 @@ async function main() {
   startLoop();
   startTrendLoop();
 
-  startTelegramPolling({ startDeal, closeDealManual, closeDealUntrack });
+  startTelegramPolling({ startDeal, closeDealManual, closeDealUntrack, compoundNow, compoundStatus });
 
-  startApiServer({ startDeal, closeDealManual, closeDealUntrack });
+  startApiServer({ startDeal, closeDealManual, closeDealUntrack, compoundNow, compoundStatus });
 
   if (process.stdin.isTTY) startREPL();
   else log('startup', 'Non-TTY mode - berjalan sebagai daemon');

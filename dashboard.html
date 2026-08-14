@@ -25,6 +25,7 @@ input,select{font-family:var(--mono);font-size:12px;border:1px solid var(--borde
 .btn.danger{background:var(--red);color:#fff;border-color:var(--red)}
 .btn.ghost{background:var(--surface);color:var(--text)}
 .btn.small{padding:3px 8px;font-size:11px;white-space:nowrap}
+.btn:disabled{opacity:.4;cursor:not-allowed}
 .action-cell{display:flex;flex-direction:row;gap:6px;flex-wrap:nowrap}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
 .stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px}
@@ -52,6 +53,11 @@ tr.day-detail th{background:var(--surface)}
 .winrate{font-size:11px;color:var(--muted)}
 .trend-cell{display:flex;align-items:center;gap:6px;white-space:nowrap}
 .day-note{padding:8px 14px;font-size:11px;color:var(--muted);border-top:1px solid var(--border)}
+.compound-body{padding:14px;display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.compound-info{display:flex;gap:24px;flex-wrap:wrap}
+.compound-item{display:flex;flex-direction:column;gap:2px}
+.compound-item .label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.compound-item .value{font-family:var(--mono);font-size:16px}
 </style>
 </head>
 <body>
@@ -74,6 +80,22 @@ tr.day-detail th{background:var(--surface)}
   <div class="stat"><div class="stat-label">Deal Aktif</div><div class="stat-value" id="st-active">—</div></div>
   <div class="stat"><div class="stat-label">Closed</div><div class="stat-value" id="st-closed">—</div></div>
   <div class="stat"><div class="stat-label">Base / Safety Order</div><div class="stat-value" id="st-order" style="font-size:14px">—</div></div>
+</div>
+
+<div class="panel" id="compound-panel" style="display:none">
+  <div class="panel-header">
+    <span>💰 Compounding</span>
+    <span class="badge gray" id="compoundBadge">—</span>
+  </div>
+  <div class="compound-body">
+    <div class="compound-info">
+      <div class="compound-item"><span class="label">Pool Profit</span><span class="value" id="cp-pool">—</span></div>
+      <div class="compound-item"><span class="label">Threshold</span><span class="value" id="cp-threshold">—</span></div>
+      <div class="compound-item"><span class="label">Base Order Sekarang</span><span class="value" id="cp-base">—</span></div>
+      <div class="compound-item"><span class="label">Safety Order Sekarang</span><span class="value" id="cp-so">—</span></div>
+    </div>
+    <button class="btn success" id="cp-apply-btn" onclick="doApplyCompound()" disabled>Terapkan Compounding</button>
+  </div>
 </div>
 
 <div class="panel">
@@ -107,7 +129,7 @@ tr.day-detail th{background:var(--surface)}
     <thead><tr><th>Tanggal</th><th>Deal Ditutup</th><th>Win Rate</th><th>PnL (USDT)</th></tr></thead>
     <tbody id="daily-body"><tr><td colspan="4" class="empty">—</td></tr></tbody>
   </table>
-  <div class="day-note">ℹ️ Klik baris tanggal utk lihat detail deal di hari itu. Deal yang ditutup lewat <b>Manual Sell</b> (di luar bot) ikut tercatat tapi PnL-nya tidak dihitung ke Total PnL / Win Rate.</div>
+  <div class="day-note">ℹ️ Klik baris tanggal utk lihat detail deal di hari itu. Deal yang ditutup lewat <b>Manual Sell</b> (di luar bot) ikut tercatat tapi PnL-nya tidak dihitung ke Total PnL / Win Rate / Compounding.</div>
 </div>
 
 <div class="panel">
@@ -149,8 +171,10 @@ function connect() {
   localStorage.setItem('dca_api_url', API);
   refreshAll();
   loadHistory();
+  loadCompoundStatus();
   setInterval(refreshAll, 10000);
-  setInterval(loadHistory, 60000); // history + PnL harian cukup di-refresh tiap 1 menit
+  setInterval(loadHistory, 60000);        // history + PnL harian cukup di-refresh tiap 1 menit
+  setInterval(loadCompoundStatus, 15000); // compounding pool cukup tiap 15 detik
 }
 
 async function apiFetch(path, opts = {}) {
@@ -187,6 +211,42 @@ async function refreshAll() {
       renderConfig(d.config);
     }
   } catch(e) { document.getElementById('deals-body').innerHTML = '<tr><td colspan="11" class="empty">Gagal connect ke ' + API + '</td></tr>'; }
+}
+
+// ── Compounding ──────────────────────────────────────────────────────────
+async function loadCompoundStatus() {
+  try {
+    const res = await apiFetch('/api/compound/status');
+    const panel = document.getElementById('compound-panel');
+    if (!res.ok || !res.enabled) { panel.style.display = 'none'; return; }
+    panel.style.display = 'block';
+
+    document.getElementById('cp-pool').textContent = (res.pool >= 0 ? '+' : '') + res.pool.toFixed(2) + ' USDT';
+    document.getElementById('cp-pool').style.color = res.pool >= 0 ? 'var(--green)' : 'var(--red)';
+    document.getElementById('cp-threshold').textContent = res.threshold + ' USDT';
+    document.getElementById('cp-base').textContent = res.currentBaseOrderSize + ' USDT';
+    document.getElementById('cp-so').textContent = res.currentSafetyOrderSize + ' USDT';
+
+    const badge = document.getElementById('compoundBadge');
+    badge.textContent = res.autoApply ? '⚡ Auto-Apply' : (res.ready ? '✅ Siap Diterapkan' : '⏳ Menunggu Threshold');
+    badge.className = 'badge ' + (res.ready ? 'green' : 'gray');
+
+    const btn = document.getElementById('cp-apply-btn');
+    btn.disabled = !res.ready || res.autoApply;
+    btn.textContent = res.autoApply ? 'Auto-Apply Aktif' : 'Terapkan Compounding';
+  } catch (e) { /* diam saja, biar gak ganggu panel lain kalau lagi gagal connect */ }
+}
+
+async function doApplyCompound() {
+  if (!confirm('Terapkan compounding sekarang?\n\nBase Order & Safety Order size akan naik proporsional memakai seluruh profit yang terkumpul, lalu pool direset ke 0.')) return;
+  const res = await apiPost('/api/compound/apply', {});
+  if (res.ok) {
+    alert(`✅ Compounding diterapkan!\nBase: ${res.oldBase} → ${res.newBase} USDT\nSafety Order: ${res.oldSO} → ${res.newSO} USDT`);
+    loadCompoundStatus();
+    refreshAll();
+  } else {
+    alert('❌ ' + res.error);
+  }
 }
 
 function renderDeals(deals) {
@@ -250,10 +310,6 @@ async function doCheckTrend(sym) {
 }
 
 // ── PnL Harian + detail per tanggal (menggantikan tabel Deal History terpisah) ─
-// Sumber data sama-sama dari /api/history. Deal 'manual_untracked' (pnlUsdt: null)
-// tetap dihitung sbg "Deal Ditutup" & muncul di detail, tapi SENGAJA dikecualikan
-// dari Total PnL / PnL Harian / Win Rate.
-
 async function loadHistory() {
   const res = await apiFetch('/api/history?limit=1000');
   _historyCache = (res.ok && res.deals) ? res.deals : [];
@@ -393,6 +449,9 @@ function renderConfig(cfg) {
       </select>
     </div>
     <div class="field"><label>Cek Tren (menit)</label><input id="cfg-trendinterval" type="number" value="${t.trendCheckIntervalMin ?? 30}"></div>
+    <div class="field"><label>Compounding Aktif</label><select id="cfg-compoundon"><option value="true" ${t.compoundingEnabled?'selected':''}>Ya</option><option value="false" ${!t.compoundingEnabled?'selected':''}>Tidak</option></select></div>
+    <div class="field"><label>Compounding Threshold (USDT)</label><input id="cfg-compoundthreshold" type="number" value="${t.compoundingThresholdUsdt ?? 10}"></div>
+    <div class="field"><label>Compounding Auto-Apply</label><select id="cfg-compoundauto"><option value="false" ${!t.compoundingAutoApply?'selected':''}>Manual (nunggu konfirmasi)</option><option value="true" ${t.compoundingAutoApply?'selected':''}>Otomatis</option></select></div>
   `;
 
   const grid = document.getElementById('config-grid');
@@ -427,6 +486,9 @@ async function saveConfig() {
       trendEmaPeriod: parseInt(document.getElementById('cfg-trendema').value),
       trendTimeframe: document.getElementById('cfg-trendtf').value,
       trendCheckIntervalMin: parseInt(document.getElementById('cfg-trendinterval').value),
+      compoundingEnabled: document.getElementById('cfg-compoundon').value === 'true',
+      compoundingThresholdUsdt: parseFloat(document.getElementById('cfg-compoundthreshold').value),
+      compoundingAutoApply: document.getElementById('cfg-compoundauto').value === 'true',
     },
   };
   const res = await apiPost('/api/config', updates);
@@ -435,6 +497,7 @@ async function saveConfig() {
     configDirty = false;
     document.getElementById('dirtyBadge').style.display = 'none';
     refreshAll();
+    loadCompoundStatus();
   }
 }
 
@@ -451,11 +514,11 @@ async function doClose(sym) {
   if (!confirm(`Tutup deal ${sym} sekarang?\n\nBot akan eksekusi MARKET SELL asli ke Bitget.`)) return;
   const res = await apiPost('/api/close', { symbol: sym });
   alert(res.ok ? `✅ Deal ${sym} ditutup` : `❌ ${res.error}`);
-  if (res.ok) { refreshAll(); loadHistory(); }
+  if (res.ok) { refreshAll(); loadHistory(); loadCompoundStatus(); }
 }
 
 async function doUntrack(sym) {
-  if (!confirm(`Tandai deal ${sym} selesai TANPA sell dari bot (Manual Sell)?\n\nPakai ini HANYA kalau kamu SUDAH jual ${sym} sendiri langsung di app exchange.\nBot TIDAK akan mengirim order apapun, dan PnL deal ini TIDAK akan dihitung ke statistik/Total PnL.`)) return;
+  if (!confirm(`Tandai deal ${sym} selesai TANPA sell dari bot (Manual Sell)?\n\nPakai ini HANYA kalau kamu SUDAH jual ${sym} sendiri langsung di app exchange.\nBot TIDAK akan mengirim order apapun, dan PnL deal ini TIDAK akan dihitung ke statistik/Total PnL/compounding.`)) return;
   const res = await apiPost('/api/untrack', { symbol: sym });
   alert(res.ok ? `✅ ${sym} ditandai selesai (Manual Sell). PnL tidak dihitung.` : `❌ ${res.error}`);
   if (res.ok) { refreshAll(); loadHistory(); }

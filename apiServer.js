@@ -118,6 +118,20 @@ async function handle(req, res) {
     return;
   }
 
+  // Status pool profit compounding — polling ringan dari dashboard.
+  if (route === '/api/compound/status' && method === 'GET') {
+    try { json(res, { ok: true, ..._callbacks.compoundStatus() }); }
+    catch (e) { err(res, e.message); }
+    return;
+  }
+
+  // Terapkan compounding sekarang (pakai seluruh pool yang terkumpul).
+  if (route === '/api/compound/apply' && method === 'POST') {
+    try { json(res, await _callbacks.compoundNow()); }
+    catch (e) { err(res, e.message); }
+    return;
+  }
+
   if (route === '/api/config' && method === 'GET') { json(res, { ok: true, config }); return; }
 
   if (route === '/api/config' && method === 'POST') {
@@ -144,7 +158,7 @@ async function handle(req, res) {
   }
 
   // Close TANPA eksekusi order — user sudah jual sendiri di luar bot.
-  // PnL deal ini TIDAK dihitung ke statistik (lihat state.js -> untrackDeal).
+  // PnL deal ini TIDAK dihitung ke statistik/compounding (lihat state.js -> untrackDeal).
   if (route === '/api/untrack' && method === 'POST') {
     const { symbol } = await readBody(req);
     if (!symbol) { err(res, 'symbol required'); return; }

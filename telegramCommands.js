@@ -134,6 +134,32 @@ async function handleCommand(chatId, text, callbacks) {
       break;
     }
 
+    case '/compound': {
+      if (arg === 'APPLY') {
+        await reply(chatId, '⏳ Menerapkan compounding...');
+        try {
+          const res = await callbacks.compoundNow();
+          await reply(chatId, res.ok
+            ? `✅ <b>Compounding Diterapkan</b>\nProfit dipakai: +${res.pool.toFixed(2)} USDT\nBase Order: ${res.oldBase} → <b>${res.newBase}</b> USDT\nSafety Order: ${res.oldSO} → <b>${res.newSO}</b> USDT`
+            : `❌ ${res.error}`);
+        } catch (e) { await reply(chatId, `❌ Error: ${e.message}`); }
+        break;
+      }
+
+      const status = callbacks.compoundStatus();
+      await reply(chatId,
+        `💰 <b>Status Compounding</b>\n\n` +
+        `Fitur       : ${status.enabled ? `ON${status.autoApply ? ' (auto-apply)' : ' (manual)'}` : 'OFF'}\n` +
+        `Pool profit : ${status.pool >= 0 ? '+' : ''}${status.pool.toFixed(2)} USDT\n` +
+        `Threshold   : ${status.threshold} USDT\n` +
+        `Status      : ${status.ready ? '✅ Siap di-compound' : '⏳ Belum mencapai threshold'}\n` +
+        `Base Order saat ini   : ${status.currentBaseOrderSize} USDT\n` +
+        `Safety Order saat ini : ${status.currentSafetyOrderSize} USDT\n\n` +
+        (status.ready ? `Ketik <b>/compound apply</b> utk terapkan sekarang.` : `Nunggu profit terkumpul dulu.`)
+      );
+      break;
+    }
+
     case '/trend': {
       if (arg) {
         await reply(chatId, `⏳ Menganalisa tren ${arg}...`);
@@ -170,7 +196,8 @@ async function handleCommand(chatId, text, callbacks) {
         `SL           : ${d.stopLossEnabled ? d.stopLossPercent + '% (basis: ' + d.stopLossBasis + ', aktif setelah semua SO habis)' : 'nonaktif'}\n` +
         `Max deal     : ${t.maxActiveDeals}\n` +
         `Auto Reopen  : ${t.reopenAfterClose ? `ON (cooldown ${t.cooldownAfterCloseMin ?? 5} menit)` : 'OFF'}\n` +
-        `Tren         : EMA${t.trendEmaPeriod ?? 21} @ ${(t.trendTimeframe ?? '1h').toUpperCase()}, cek tiap ${t.trendCheckIntervalMin ?? 30} menit (informatif saja)\n\n` +
+        `Tren         : EMA${t.trendEmaPeriod ?? 21} @ ${(t.trendTimeframe ?? '1h').toUpperCase()}, cek tiap ${t.trendCheckIntervalMin ?? 30} menit (informatif saja)\n` +
+        `Compounding  : ${t.compoundingEnabled ? `ON (threshold ${t.compoundingThresholdUsdt ?? 10} USDT${t.compoundingAutoApply ? ', auto-apply' : ', manual'})` : 'OFF'}\n\n` +
         `<i>Edit lewat dashboard atau user-config.json, lalu restart bot.</i>`
       );
       break;
@@ -187,6 +214,7 @@ async function handleCommand(chatId, text, callbacks) {
         `/stats            — ringkasan PnL\n` +
         `/config           — lihat setting DCA saat ini\n` +
         `/trend [SYMBOL]   — cek status tren (kosongkan utk semua deal aktif)\n` +
+        `/compound [apply] — cek status profit terkumpul / terapkan compounding\n` +
         `/reopen on|off    — toggle auto-reopen setelah TP`
       );
       break;

@@ -17,12 +17,17 @@ function loadLocal() {
       const s = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
       if (!s.pendingReopens) s.pendingReopens = {}; // backward-compat state.json lama
       if (!s.trendStatus)    s.trendStatus    = {}; // backward-compat state.json lama
+      if (s.compoundingPool === undefined)    s.compoundingPool    = 0;
+      if (s.compoundingNotified === undefined) s.compoundingNotified = false;
       return s;
     }
   } catch (err) {
     log('state_error', `Gagal baca state: ${err.message}`);
   }
-  return { deals: {}, closedDeals: [], totalPnlUsdt: 0, pendingReopens: {}, trendStatus: {} };
+  return {
+    deals: {}, closedDeals: [], totalPnlUsdt: 0, pendingReopens: {}, trendStatus: {},
+    compoundingPool: 0, compoundingNotified: false,
+  };
 }
 
 function saveLocal(state) {
@@ -81,6 +86,11 @@ export function updateDealCalc(symbol, patch) {
   return deal;
 }
 
+/**
+ * Close deal DENGAN harga exit asli (TP/SL/Manual Close via bot).
+ * pnlUsdt hasil deal ini SENGAJA ditambahkan ke compoundingPool — itu "profit"
+ * (atau rugi, kalau negatif) yang jadi basis fitur compounding.
+ */
 export function closeDeal(symbol, { exitPrice, reason }) {
   const deal = _state.deals[symbol];
   if (!deal) return null;
@@ -100,6 +110,7 @@ export function closeDeal(symbol, { exitPrice, reason }) {
 
   _state.closedDeals.push(closed);
   _state.totalPnlUsdt = (_state.totalPnlUsdt || 0) + pnlUsdt;
+  _state.compoundingPool = (_state.compoundingPool || 0) + pnlUsdt;
   delete _state.deals[symbol];
   saveLocal(_state);
 
@@ -110,8 +121,8 @@ export function closeDeal(symbol, { exitPrice, reason }) {
 /**
  * Untrack — dipakai kalau user JUAL SENDIRI di luar bot (manual di app exchange).
  * BEDA dari closeDeal(): tidak ada exitPrice/eksekusi order, dan PnL SENGAJA
- * tidak dihitung/ditambahkan ke totalPnlUsdt — supaya statistik bot tetap murni
- * mencerminkan performa keputusan yang diambil OTOMATIS oleh bot sendiri.
+ * tidak dihitung/ditambahkan ke totalPnlUsdt ATAU compoundingPool — supaya statistik
+ * & compounding bot tetap murni mencerminkan performa keputusan OTOMATIS bot sendiri.
  */
 export function untrackDeal(symbol) {
   const deal = _state.deals[symbol];
@@ -128,11 +139,11 @@ export function untrackDeal(symbol) {
   };
 
   _state.closedDeals.push(closed);
-  // totalPnlUsdt SENGAJA TIDAK diubah di sini.
+  // totalPnlUsdt & compoundingPool SENGAJA TIDAK diubah di sini.
   delete _state.deals[symbol];
   saveLocal(_state);
 
-  log('state', `📁 Deal di-untrack (manual, di luar bot): ${symbol} | SO terpakai=${deal.safetyOrdersFilled} | PnL TIDAK dihitung ke statistik`);
+  log('state', `📁 Deal di-untrack (manual, di luar bot): ${symbol} | SO terpakai=${deal.safetyOrdersFilled} | PnL TIDAK dihitung ke statistik/compounding`);
   return closed;
 }
 
@@ -157,6 +168,21 @@ export function getTrendStatus(symbol) {
 export function setTrendStatus(symbol, status) {
   if (!_state.trendStatus) _state.trendStatus = {};
   _state.trendStatus[symbol] = status;
+  saveLocal(_state);
+}
+
+// ── Compounding pool (dipakai compounding.js) ───────────────────────────────
+export function getCompoundingPool() { return _state.compoundingPool || 0; }
+
+export function resetCompoundingPool() {
+  _state.compoundingPool = 0;
+  saveLocal(_state);
+}
+
+export function getCompoundingNotified() { return !!_state.compoundingNotified; }
+
+export function setCompoundingNotified(val) {
+  _state.compoundingNotified = !!val;
   saveLocal(_state);
 }
 
