@@ -45,14 +45,14 @@ async function buildDealsText() {
     const d   = deals[sym];
     const cur = await getCurrentPrice(sym).catch(() => null);
     const pnl = cur ? ((cur - d.avgPrice) / d.avgPrice * 100) : null;
-    text += `<b>${sym}</b>\n`;
+    text += `<b>${sym}</b>${d.tpHold ? ' ⏸ <i>TP HOLD</i>' : ''}\n`;
     text += `  Avg: ${d.avgPrice.toFixed(6)} | Now: ${cur ?? '—'} | PnL: ${pnl !== null ? (pnl >= 0 ? '+' : '') + pnl.toFixed(2) + '%' : '—'}\n`;
     text += `  SO terpakai: ${d.safetyOrdersFilled}/${config.dca.maxSafetyOrders} | Next SO @ ${d.nextSOPrice?.toFixed(6) ?? 'habis'}\n`;
     const slText = d.slPrice ? d.slPrice.toFixed(6) : (d.nextSOPrice !== null ? 'belum aktif (masih ada SO)' : '—');
     const tpText = (d.tpPriceBase != null && d.tpPriceAverage != null)
       ? `${d.tpPrice?.toFixed(6)} (base: ${d.tpPriceBase.toFixed(6)} | avg: ${d.tpPriceAverage.toFixed(6)})`
       : d.tpPrice?.toFixed(6);
-    text += `  TP: ${tpText} | SL: ${slText}\n\n`;
+    text += `  TP: ${tpText}${d.tpHold ? ' (⏸ dilewati sementara)' : ''} | SL: ${slText}\n\n`;
   }
   return text;
 }
@@ -105,6 +105,24 @@ async function handleCommand(chatId, text, callbacks) {
       try {
         const res = await callbacks.closeDealUntrack(arg);
         await reply(chatId, res.ok ? `✅ ${arg} ditandai selesai (manual). PnL TIDAK dihitung ke statistik.` : `❌ ${res.error}`);
+      } catch (e) { await reply(chatId, `❌ Error: ${e.message}`); }
+      break;
+    }
+
+    case '/hold': {
+      if (!arg) { await reply(chatId, '❓ Format: /hold SYMBOL\nBekukan Take Profit sementara — deal TIDAK akan dijual walau harga sudah nyentuh TP. Safety Order & Stop Loss tetap jalan normal. Pakai /resume SYMBOL utk balikin ke normal.'); break; }
+      try {
+        const res = callbacks.holdTP(arg);
+        await reply(chatId, res.ok ? `⏸ TP Hold diaktifkan utk ${arg}. TP tidak akan trigger sampai kamu /resume ${arg}.` : `❌ ${res.error}`);
+      } catch (e) { await reply(chatId, `❌ Error: ${e.message}`); }
+      break;
+    }
+
+    case '/resume': {
+      if (!arg) { await reply(chatId, '❓ Format: /resume SYMBOL\nAktifkan lagi TP normal utk deal yang lagi di-hold.'); break; }
+      try {
+        const res = callbacks.resumeTP(arg);
+        await reply(chatId, res.ok ? `▶ TP Hold dinonaktifkan utk ${arg}. TP normal aktif lagi.` : `❌ ${res.error}`);
       } catch (e) { await reply(chatId, `❌ Error: ${e.message}`); }
       break;
     }
@@ -210,6 +228,8 @@ async function handleCommand(chatId, text, callbacks) {
         `/startdca SYMBOL  — buka deal baru (base order)\n` +
         `/closedca SYMBOL  — tutup deal manual (bot market sell)\n` +
         `/untrack SYMBOL   — tandai selesai TANPA sell dari bot (kamu sudah jual sendiri di luar bot; PnL tidak dihitung)\n` +
+        `/hold SYMBOL      — bekukan TP sementara (SO & SL tetap normal)\n` +
+        `/resume SYMBOL    — aktifkan lagi TP normal\n` +
         `/deals            — lihat semua deal aktif\n` +
         `/stats            — ringkasan PnL\n` +
         `/config           — lihat setting DCA saat ini\n` +

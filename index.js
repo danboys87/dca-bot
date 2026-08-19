@@ -12,7 +12,7 @@ import { config, saveConfig } from './config.js';
 import { testConnection, getCurrentPrice } from './bitget.js';
 import {
   getActiveSymbols, getDeal, getActiveDeals, getStats, getClosedDeals, hasActiveDeal,
-  schedulePendingReopen, clearPendingReopen, getPendingReopens, untrackDeal,
+  schedulePendingReopen, clearPendingReopen, getPendingReopens, untrackDeal, setTpHold,
   getCompoundingNotified, setCompoundingNotified,
 } from './state.js';
 import { evaluateDeal } from './dcaEngine.js';
@@ -57,6 +57,21 @@ export async function startDeal(symbol) {
     await notifyError(`Buka deal ${symbol} gagal: ${e.message}`);
     return { ok: false, error: e.message };
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TP HOLD — bekukan sementara Take Profit utk 1 deal. SO & SL tetap jalan normal.
+// ─────────────────────────────────────────────────────────────────────────────
+export function holdTP(symbol) {
+  if (!hasActiveDeal(symbol)) return { ok: false, error: `Deal ${symbol} tidak aktif` };
+  const deal = setTpHold(symbol, true);
+  return { ok: true, deal };
+}
+
+export function resumeTP(symbol) {
+  if (!hasActiveDeal(symbol)) return { ok: false, error: `Deal ${symbol} tidak aktif` };
+  const deal = setTpHold(symbol, false);
+  return { ok: true, deal };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -199,7 +214,11 @@ async function checkDeals() {
 
         const decision = evaluateDeal(deal, price, config.dca);
 
-        if (decision.action === 'take_profit') {
+        if (decision.action === 'take_profit' && deal.tpHold) {
+          // TP Hold aktif — dilewati sengaja, deal tetap terbuka nunggu di-resume manual.
+          log('dca', `⏸ TP hit tapi HOLD aktif: ${symbol} @ ${price} (TP=${deal.tpPrice.toFixed(6)}) — dilewati`);
+
+        } else if (decision.action === 'take_profit') {
           log('dca', `🎯 TP hit: ${symbol} @ ${price} (TP=${deal.tpPrice.toFixed(6)})`);
           const closed = await closeDealMarket(symbol, 'take_profit');
           await notifyDealClosed(closed);
@@ -207,6 +226,7 @@ async function checkDeals() {
           await maybeHandleCompounding();
 
         } else if (decision.action === 'stop_loss') {
+          // SL TETAP jalan normal walau TP Hold aktif — hold cuma utk TP, bukan proteksi rugi.
           log('dca', `🛑 SL hit: ${symbol} @ ${price} (SL=${deal.slPrice.toFixed(6)})`);
           const closed = await closeDealMarket(symbol, 'stop_loss');
           await notifyDealClosed(closed);
@@ -220,10 +240,11 @@ async function checkDeals() {
 
         } else {
           const slLog = deal.slPrice ? deal.slPrice.toFixed(6) : (deal.nextSOPrice !== null ? 'belum aktif' : '—');
+          const holdLog = deal.tpHold ? ' | ⏸ TP HOLD' : '';
           log('dca',
             `  ${symbol} | price=${price} avg=${deal.avgPrice.toFixed(6)} ` +
             `TP=${deal.tpPrice?.toFixed(6)} SL=${slLog} ` +
-            `nextSO=${deal.nextSOPrice?.toFixed(6) ?? 'habis'} | SO ${deal.safetyOrdersFilled}/${config.dca.maxSafetyOrders}`
+            `nextSO=${deal.nextSOPrice?.toFixed(6) ?? 'habis'} | SO ${deal.safetyOrdersFilled}/${config.dca.maxSafetyOrders}${holdLog}`
           );
         }
       } catch (err) {
@@ -286,7 +307,7 @@ async function showStatus() {
   for (const [symbol, d] of Object.entries(deals)) {
     const price = await getCurrentPrice(symbol).catch(() => null);
     const pnl   = price ? ((price - d.avgPrice) / d.avgPrice * 100) : null;
-    console.log(`\n  ${symbol}`);
+    console.log(`\n  ${symbol}${d.tpHold ? ' ⏸ TP HOLD' : ''}`);
     console.log(`    avg=${d.avgPrice.toFixed(6)} now=${price ?? '—'} PnL=${pnl !== null ? pnl.toFixed(2) + '%' : '—'}`);
     console.log(`    SO ${d.safetyOrdersFilled}/${config.dca.maxSafetyOrders} | nextSO=${d.nextSOPrice?.toFixed(6) ?? 'habis'}`);
     const slLog = d.slPrice ? d.slPrice.toFixed(6) : (d.nextSOPrice !== null ? 'belum aktif' : '—');
@@ -313,7 +334,7 @@ async function showStatus() {
 // ─────────────────────────────────────────────────────────────────────────────
 function startREPL() {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout, prompt: '\n[dca-bot] > ' });
-  console.log('\n📖 Perintah: status | start SYMBOL | close SYMBOL | untrack SYMBOL | compound [apply] | reopen on/off | stop | help\n');
+  console.log('\n📖 Perintah: status | start SYMBOL | close SYMBOL | untrack SYMBOL | hold SYMBOL | resume SYMBOL | compound [apply] | reopen on/off | stop | help\n');
   rl.prompt();
 
   rl.on('line', async (line) => {
@@ -329,6 +350,12 @@ function startREPL() {
       case 'untrack':
         if (!arg) { console.log('Format: untrack SYMBOL  (tandai selesai TANPA sell dari bot, PnL tidak dihitung)'); break; }
         console.log(await closeDealUntrack(arg.toUpperCase())); break;
+      case 'hold':
+        if (!arg) { console.log('Format: hold SYMBOL  (bekukan TP sementara, SO & SL tetap normal)'); break; }
+        console.log(holdTP(arg.toUpperCase())); break;
+      case 'resume':
+        if (!arg) { console.log('Format: resume SYMBOL  (aktifkan lagi TP normal)'); break; }
+        console.log(resumeTP(arg.toUpperCase())); break;
       case 'compound':
         if ((arg || '').toLowerCase() === 'apply') { console.log(await compoundNow()); }
         else { console.log(compoundStatus()); }
@@ -340,7 +367,7 @@ function startREPL() {
         break;
       case 'stop': stopLoop(); stopTrendLoop(); stopTelegramPolling(); process.exit(0); break;
       case 'help':
-        console.log('  status | start SYMBOL | close SYMBOL | untrack SYMBOL | compound [apply] | reopen on/off | stop'); break;
+        console.log('  status | start SYMBOL | close SYMBOL | untrack SYMBOL | hold SYMBOL | resume SYMBOL | compound [apply] | reopen on/off | stop'); break;
       default: console.log(`❓ Perintah tidak dikenal: "${cmd}"`);
     }
     rl.prompt();
@@ -384,9 +411,9 @@ async function main() {
   startLoop();
   startTrendLoop();
 
-  startTelegramPolling({ startDeal, closeDealManual, closeDealUntrack, compoundNow, compoundStatus });
+  startTelegramPolling({ startDeal, closeDealManual, closeDealUntrack, holdTP, resumeTP, compoundNow, compoundStatus });
 
-  startApiServer({ startDeal, closeDealManual, closeDealUntrack, compoundNow, compoundStatus });
+  startApiServer({ startDeal, closeDealManual, closeDealUntrack, holdTP, resumeTP, compoundNow, compoundStatus });
 
   if (process.stdin.isTTY) startREPL();
   else log('startup', 'Non-TTY mode - berjalan sebagai daemon');

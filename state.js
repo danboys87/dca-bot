@@ -58,6 +58,7 @@ export function startDeal(symbol, { qty, price, budget, orderId }) {
     nextSOSize:        null,
     tpPrice:           null,
     slPrice:           null,
+    tpHold:            false, // TP Hold — kalau true, TP dilewati sementara (SO & SL tetap jalan normal)
     openedAt:          new Date().toISOString(),
     orders: [
       { tag: 'base', qty, price, budget, orderId, filledAt: new Date().toISOString() },
@@ -83,6 +84,20 @@ export function updateDealCalc(symbol, patch) {
   if (!deal) return null;
   Object.assign(deal, patch);
   saveLocal(_state);
+  return deal;
+}
+
+/**
+ * TP Hold — bekukan sementara logic Take Profit utk 1 deal. Selama hold aktif,
+ * SO & SL TETAP jalan normal seperti biasa; cuma TP yang dilewati. Dipakai kalau
+ * user mau nunggu kenaikan lebih tinggi dari target TP normal sebelum jual.
+ */
+export function setTpHold(symbol, hold) {
+  const deal = _state.deals[symbol];
+  if (!deal) return null;
+  deal.tpHold = !!hold;
+  saveLocal(_state);
+  log('state', `${hold ? '⏸' : '▶'} TP Hold ${hold ? 'diaktifkan' : 'dinonaktifkan'}: ${symbol}`);
   return deal;
 }
 

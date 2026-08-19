@@ -9,7 +9,7 @@
 :root{--bg:#f5f4f0;--surface:#fff;--border:#e2e0d8;--text:#1a1916;--muted:#7a7568;--green:#1a7a4a;--green-bg:#edf7f1;--red:#c0392b;--red-bg:#fdf0ee;--yellow:#b07d20;--yellow-bg:#fdf6e3;--mono:'DM Mono',monospace;--sans:'DM Sans',sans-serif;--radius:6px;}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:13px;line-height:1.5}
-.wrap{max-width:1220px;margin:0 auto;padding:20px}
+.wrap{max-width:1260px;margin:0 auto;padding:20px}
 header{display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap}
 header h1{font-family:var(--mono);font-size:15px;font-weight:500}
 .badge{font-family:var(--mono);font-size:11px;font-weight:500;padding:3px 8px;border-radius:3px}
@@ -17,16 +17,17 @@ header h1{font-family:var(--mono);font-size:15px;font-weight:500}
 .badge.red{background:var(--red-bg);color:var(--red)}
 .badge.yellow{background:var(--yellow-bg);color:var(--yellow)}
 .badge.gray{background:var(--bg);color:var(--muted);border:1px solid var(--border)}
-.top-right{margin-left:auto;display:flex;gap:8px;align-items:center}
+.top-right{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 input,select{font-family:var(--mono);font-size:12px;border:1px solid var(--border);border-radius:var(--radius);padding:6px 9px;background:var(--bg);color:var(--text);outline:none}
 .btn{font-family:var(--sans);font-size:12px;font-weight:500;padding:6px 13px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);cursor:pointer}
 .btn.primary{background:var(--text);color:#fff;border-color:var(--text)}
 .btn.success{background:var(--green);color:#fff;border-color:var(--green)}
 .btn.danger{background:var(--red);color:#fff;border-color:var(--red)}
+.btn.warn{background:var(--yellow-bg);color:var(--yellow);border-color:var(--yellow)}
 .btn.ghost{background:var(--surface);color:var(--text)}
 .btn.small{padding:3px 8px;font-size:11px;white-space:nowrap}
 .btn:disabled{opacity:.4;cursor:not-allowed}
-.action-cell{display:flex;flex-direction:row;gap:6px;flex-wrap:nowrap}
+.action-cell{display:flex;flex-direction:row;gap:6px;flex-wrap:wrap}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
 .stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px}
 .stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
@@ -40,6 +41,7 @@ td{padding:9px 12px;border-bottom:1px solid var(--border);font-family:var(--mono
 tr:last-child td{border-bottom:none}
 tr.today td{background:var(--yellow-bg)}
 tr.untracked td{background:#faf9f6}
+tr.tp-hold td{background:#fdf9ef}
 tr.day-row{cursor:pointer}
 tr.day-row:hover td{background:var(--bg)}
 tr.day-detail td{padding:0;background:var(--bg)}
@@ -58,6 +60,7 @@ tr.day-detail th{background:var(--surface)}
 .compound-item{display:flex;flex-direction:column;gap:2px}
 .compound-item .label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
 .compound-item .value{font-family:var(--mono);font-size:16px}
+.hold-tag{font-size:10px;color:var(--yellow);font-weight:600}
 </style>
 </head>
 <body>
@@ -68,7 +71,8 @@ tr.day-detail th{background:var(--surface)}
   <span class="badge gray" id="reopenLabel">—</span>
   <span class="badge gray" id="trendIntervalLabel">—</span>
   <div class="top-right">
-    <input id="apiUrl" style="width:210px" value="http://localhost:3001" placeholder="http://localhost:3001">
+    <input id="apiUrl" style="width:210px" placeholder="http://localhost:3001">
+    <input id="apiSecret" type="password" style="width:130px" placeholder="Secret (opsional)">
     <button class="btn primary" onclick="connect()">Connect</button>
     <button class="btn" onclick="refreshAll()">↻</button>
   </div>
@@ -146,7 +150,11 @@ tr.day-detail th{background:var(--surface)}
 </div>
 
 <script>
-let API = localStorage.getItem('dca_api_url') || 'http://localhost:3001';
+// Default: kalau belum pernah disimpan, pakai origin halaman ini sendiri.
+// Ini bikin dashboard "langsung nyambung" begitu dibuka dari URL Railway
+// (karena apiServer.js sekarang serve dashboard.html ini juga di rute yang sama).
+let API = localStorage.getItem('dca_api_url') || window.location.origin;
+let API_SECRET = localStorage.getItem('dca_api_secret') || '';
 let configDirty = false;     // true selama user sedang mengedit form Config & belum klik Save
 let _historyCache = [];      // simpan hasil /api/history terakhir, dipakai ulang oleh tabel PnL Harian + detail per tanggal
 let _openDays = new Set();   // tanggal mana saja yang detailnya sedang expanded
@@ -164,11 +172,17 @@ const REASON_LABEL = {
   manual_untracked: '📤 Manual Sell',
 };
 
-document.addEventListener('DOMContentLoaded', () => { document.getElementById('apiUrl').value = API; connect(); });
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('apiUrl').value = API;
+  document.getElementById('apiSecret').value = API_SECRET;
+  connect();
+});
 
 function connect() {
-  API = document.getElementById('apiUrl').value.replace(/\/$/, '');
+  API = document.getElementById('apiUrl').value.replace(/\/$/, '') || window.location.origin;
+  API_SECRET = document.getElementById('apiSecret').value.trim();
   localStorage.setItem('dca_api_url', API);
+  localStorage.setItem('dca_api_secret', API_SECRET);
   refreshAll();
   loadHistory();
   loadCompoundStatus();
@@ -178,7 +192,9 @@ function connect() {
 }
 
 async function apiFetch(path, opts = {}) {
-  const res = await fetch(API + path, { headers: { 'Content-Type': 'application/json' }, ...opts });
+  const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+  if (API_SECRET) headers['X-Secret'] = API_SECRET;
+  const res = await fetch(API + path, { ...opts, headers });
   return res.json();
 }
 async function apiPost(path, body) { return apiFetch(path, { method: 'POST', body: JSON.stringify(body) }); }
@@ -261,7 +277,8 @@ function renderDeals(deals) {
       ? `title="base: ${d.tpPriceBase.toFixed(6)} | avg: ${d.tpPriceAverage.toFixed(6)} (dipakai: yang terdekat)"`
       : '';
     const t = TREND_INFO[d.trendStatus] || { label: '— belum dicek', cls: 'gray' };
-    return `<tr>
+    const holdTag = d.tpHold ? '<br><span class="hold-tag">⏸ HOLD</span>' : '';
+    return `<tr class="${d.tpHold ? 'tp-hold' : ''}">
       <td><b>${sym}</b></td>
       <td>${d.avgPrice?.toFixed(6)}</td>
       <td>${d.currentPrice ?? '—'}</td>
@@ -269,7 +286,7 @@ function renderDeals(deals) {
       <td style="color:var(--${cls})">${d.pnlUsdt != null ? (sign + d.pnlUsdt.toFixed(2) + ' USDT') : '—'}</td>
       <td>${d.safetyOrdersFilled}</td>
       <td>${d.nextSOPrice?.toFixed(6) ?? 'habis'}</td>
-      <td style="color:var(--green)" ${tpTitle}>${d.tpPrice?.toFixed(6) ?? '—'}</td>
+      <td style="color:var(--green)" ${tpTitle}>${d.tpPrice?.toFixed(6) ?? '—'}${holdTag}</td>
       <td style="color:var(--red)">${slText}</td>
       <td>
         <div class="trend-cell">
@@ -281,10 +298,25 @@ function renderDeals(deals) {
         <div class="action-cell">
           <button class="btn danger small" onclick="doClose('${sym}')" title="Bot eksekusi market sell asli">Close (Sell)</button>
           <button class="btn ghost small" onclick="doUntrack('${sym}')" title="Kamu sudah jual sendiri di luar bot — bot cuma berhenti mantau, TIDAK ada order, PnL tidak dihitung">Manual Sell</button>
+          ${d.tpHold
+            ? `<button class="btn warn small" onclick="doResume('${sym}')" title="Aktifkan lagi TP normal">▶ Resume TP</button>`
+            : `<button class="btn ghost small" onclick="doHold('${sym}')" title="Bekukan TP sementara — SO & SL tetap normal, nunggu harga naik lebih tinggi dulu">⏸ Hold TP</button>`}
         </div>
       </td>
     </tr>`;
   }).join('');
+}
+
+// ── TP Hold — bekukan/aktifkan lagi Take Profit per deal ───────────────────
+async function doHold(sym) {
+  if (!confirm(`Bekukan TP utk ${sym}?\n\nDeal TIDAK akan dijual walau harga sudah nyentuh target TP. Safety Order & Stop Loss tetap jalan normal. Klik "Resume TP" nanti kalau mau balikin ke normal.`)) return;
+  const res = await apiPost('/api/hold', { symbol: sym });
+  if (res.ok) { refreshAll(); } else { alert('❌ ' + res.error); }
+}
+
+async function doResume(sym) {
+  const res = await apiPost('/api/resume', { symbol: sym });
+  if (res.ok) { refreshAll(); } else { alert('❌ ' + res.error); }
 }
 
 // ── Trend Monitor — cek manual (live), tidak menunggu loop background ──────

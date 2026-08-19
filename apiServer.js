@@ -12,7 +12,9 @@ import { config, saveConfig } from './config.js';
 import { analyzeTrend } from './trendMonitor.js';
 
 const __dirname  = path.dirname(fileURLToPath(import.meta.url));
-const PORT       = parseInt(process.env.DASHBOARD_PORT || '3001');
+// Prioritas: DASHBOARD_PORT (kalau di-set eksplisit) > PORT (Railway auto-inject
+// utk service dgn public networking) > 3001 (default dev lokal).
+const PORT       = parseInt(process.env.DASHBOARD_PORT || process.env.PORT || '3001');
 const API_SECRET = process.env.DASHBOARD_SECRET || '';
 
 let _callbacks = {};
@@ -29,6 +31,18 @@ function json(res, data, status = 200) {
 }
 
 function err(res, msg, status = 400) { json(res, { ok: false, error: msg }, status); }
+
+function serveDashboard(res) {
+  try {
+    const filePath = path.join(__dirname, 'dashboard.html');
+    const html = fs.readFileSync(filePath, 'utf8');
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(html);
+  } catch (e) {
+    res.writeHead(500, { 'Content-Type': 'text/plain' });
+    res.end(`Gagal load dashboard.html: ${e.message}`);
+  }
+}
 
 async function readBody(req) {
   return new Promise((resolve) => {
@@ -61,6 +75,13 @@ async function handle(req, res) {
     res.writeHead(204, { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET,POST,OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type,X-Secret' });
     res.end(); return;
   }
+
+  // Serve dashboard.html langsung di root — buka URL Railway = langsung liat dashboard.
+  if ((route === '/' || route === '/dashboard') && method === 'GET') {
+    serveDashboard(res);
+    return;
+  }
+
   if (method === 'POST' && !checkAuth(req)) { err(res, 'Unauthorized', 401); return; }
 
   if (route === '/api/status' && method === 'GET') {
@@ -167,6 +188,24 @@ async function handle(req, res) {
     return;
   }
 
+  // Bekukan TP sementara — SO & SL tetap jalan normal.
+  if (route === '/api/hold' && method === 'POST') {
+    const { symbol } = await readBody(req);
+    if (!symbol) { err(res, 'symbol required'); return; }
+    try { json(res, _callbacks.holdTP(symbol.toUpperCase())); }
+    catch (e) { err(res, e.message); }
+    return;
+  }
+
+  // Aktifkan lagi TP normal.
+  if (route === '/api/resume' && method === 'POST') {
+    const { symbol } = await readBody(req);
+    if (!symbol) { err(res, 'symbol required'); return; }
+    try { json(res, _callbacks.resumeTP(symbol.toUpperCase())); }
+    catch (e) { err(res, e.message); }
+    return;
+  }
+
   json(res, { ok: false, error: 'Route tidak ditemukan' }, 404);
 }
 
@@ -176,7 +215,7 @@ export function startApiServer(callbacks) {
     try { await handle(req, res); } catch (e) { err(res, e.message, 500); }
   });
   server.listen(PORT, () => {
-    log('api_server', `✅ Dashboard API DCA berjalan di http://localhost:${PORT}`);
+    log('api_server', `✅ Dashboard API DCA berjalan di http://localhost:${PORT} (buka "/" utk lihat dashboard)`);
   });
   return server;
 }
