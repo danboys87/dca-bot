@@ -9,6 +9,9 @@
  * itu semua tetap murni dari dcaEngine.js. Modul ini cuma memantau & kasih notifikasi
  * kalau ada indikasi tren berubah (bullish/bearish), biar user bisa ambil
  * keputusan sendiri (misal close manual, atau tunggu saja).
+ *
+ * (Bandingkan dengan entryFilter.js — itu yang BENERAN memblokir entry baru,
+ * pakai EMA/timeframe terpisah, umumnya lebih pendek buat gating jangka pendek.)
  */
 import { getCandles } from './bitget.js';
 import { log } from './logger.js';
@@ -28,33 +31,37 @@ function ema(values, period) {
 }
 
 /**
- * Hitung status tren dari candle terbaru utk 1 symbol.
- * Timeframe & periode EMA dibaca fresh dari config tiap kali dipanggil (bukan hardcode),
- * jadi bisa diubah lewat dashboard/user-config.json tanpa restart.
- * Status: 'bullish' (harga > EMA), 'bearish' (harga < EMA), 'netral' (persis di garis EMA).
+ * Hitung EMA generik utk symbol/timeframe/period apapun — dipakai bareng
+ * oleh Trend Monitor (informatif) dan Entry Filter (gating entry baru).
+ * Return: { price, ema, period, timeframe, aboveEma } atau null kalau data kurang.
+ */
+export async function computeEmaSignal(symbol, timeframe, period) {
+  const candles = await getCandles(symbol, timeframe, period + 50);
+  if (!candles || candles.length < period + 10) {
+    log('trend_warn', `Data candle ${symbol} (${timeframe}) tidak cukup utk EMA${period} (dapat ${candles?.length ?? 0}, butuh min ${period + 10})`);
+    return null;
+  }
+  // Bitget mengembalikan candle terurut ascending (lama → baru). Index [4] = close price.
+  const closes = candles.map(c => parseFloat(c[4]));
+  const price   = closes[closes.length - 1];
+  const emaVal  = ema(closes, period);
+  return { price, ema: emaVal, period, timeframe, aboveEma: price >= emaVal };
+}
+
+/**
+ * Status tren dari EMA config.trading.trendEmaPeriod/trendTimeframe.
  * Return: { status, price, ema, period, timeframe } atau null kalau data kurang.
  */
 export async function analyzeTrend(symbol) {
-  const t         = config.trading;
-  const timeframe = t.trendTimeframe ?? '1h';
-  const period    = t.trendEmaPeriod ?? 21;
-
-  const candles = await getCandles(symbol, timeframe, period + 50);
-  if (!candles || candles.length < period + 10) {
-    log('trend_warn', `Data candle ${symbol} (${timeframe}) tidak cukup utk analisa tren (dapat ${candles?.length ?? 0}, butuh min ${period + 10})`);
-    return null;
-  }
-
-  // Bitget mengembalikan candle terurut ascending (lama → baru). Index [4] = close price.
-  const closes = candles.map(c => parseFloat(c[4]));
-  const price  = closes[closes.length - 1];
-  const emaVal = ema(closes, period);
+  const t      = config.trading;
+  const signal = await computeEmaSignal(symbol, t.trendTimeframe ?? '1h', t.trendEmaPeriod ?? 21);
+  if (!signal) return null;
 
   let status = 'netral';
-  if (price > emaVal) status = 'bullish';
-  else if (price < emaVal) status = 'bearish';
+  if (signal.price > signal.ema) status = 'bullish';
+  else if (signal.price < signal.ema) status = 'bearish';
 
-  return { status, price, ema: emaVal, period, timeframe };
+  return { status, price: signal.price, ema: signal.ema, period: signal.period, timeframe: signal.timeframe };
 }
 
 /**

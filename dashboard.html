@@ -34,7 +34,8 @@ input,select{font-family:var(--mono);font-size:12px;border:1px solid var(--borde
 .stat-value{font-family:var(--mono);font-size:19px}
 .stat-value.green{color:var(--green)} .stat-value.red{color:var(--red)}
 .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:16px;overflow:hidden}
-.panel-header{padding:10px 14px;border-bottom:1px solid var(--border);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);display:flex;justify-content:space-between;align-items:center}
+.panel-header{padding:10px 14px;border-bottom:1px solid var(--border);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
 table{width:100%;border-collapse:collapse}
 th{text-align:left;padding:8px 12px;font-size:10px;font-weight:600;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);background:var(--bg)}
 td{padding:9px 12px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:12px}
@@ -61,15 +62,59 @@ tr.day-detail th{background:var(--surface)}
 .compound-item .label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
 .compound-item .value{font-family:var(--mono);font-size:16px}
 .hold-tag{font-size:10px;color:var(--yellow);font-weight:600}
+
+/* ── Sidebar layout ─────────────────────────────────────────────────── */
+.app-shell{display:flex;min-height:100vh}
+.sidebar{width:200px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);padding:18px 0;position:sticky;top:0;height:100vh;overflow-y:auto}
+.sidebar-brand{font-family:var(--mono);font-size:14px;font-weight:500;padding:0 18px 18px;border-bottom:1px solid var(--border);margin-bottom:14px}
+.nav-section{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);padding:14px 18px 6px}
+.nav-item{display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:8px 18px;border:none;background:none;font-family:var(--sans);font-size:12.5px;color:var(--text);cursor:pointer;border-left:3px solid transparent}
+.nav-item:hover{background:var(--bg)}
+.nav-item.active{background:var(--bg);border-left-color:var(--text);font-weight:600}
+.nav-icon{width:14px;text-align:center;font-size:12px}
+.main{flex:1;min-width:0;padding:20px;max-width:1260px}
+.page{display:none}
+.page.active{display:block}
+.log-box{background:#1a1916;color:#d6d3c9;font-family:var(--mono);font-size:11px;line-height:1.6;padding:14px;border-radius:var(--radius);white-space:pre-wrap;word-break:break-all;max-height:70vh;overflow-y:auto}
+@media (max-width: 760px){
+  .app-shell{flex-direction:column}
+  .sidebar{width:100%;height:auto;position:relative;padding:10px 0;display:flex;flex-wrap:wrap;align-items:center}
+  .sidebar-brand{border-bottom:none;padding:0 14px;margin-bottom:0;width:100%}
+  .nav-section{display:none}
+  .nav-item{width:auto;padding:8px 12px;border-left:none;border-bottom:3px solid transparent}
+  .nav-item.active{border-left:none;border-bottom-color:var(--text)}
+  .main{max-width:100%}
+}
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="app-shell">
+<aside class="sidebar">
+  <div class="sidebar-brand">▣ DCA BOT</div>
+
+  <div class="nav-section">Monitor</div>
+  <button class="nav-item active" data-page="overview" onclick="switchPage('overview')"><span class="nav-icon">◈</span> Overview</button>
+  <button class="nav-item" data-page="deals" onclick="switchPage('deals')"><span class="nav-icon">📂</span> DCA Deals</button>
+  <button class="nav-item" data-page="pending" onclick="switchPage('pending')"><span class="nav-icon">⏸</span> Pending</button>
+
+  <div class="nav-section">Trading</div>
+  <button class="nav-item" data-page="position" onclick="switchPage('position')"><span class="nav-icon">🎯</span> Manual Position</button>
+
+  <div class="nav-section">History</div>
+  <button class="nav-item" data-page="history" onclick="switchPage('history')"><span class="nav-icon">📅</span> PnL Harian</button>
+  <button class="nav-item" data-page="poshistory" onclick="switchPage('poshistory')"><span class="nav-icon">📜</span> Riwayat Position</button>
+  <button class="nav-item" data-page="logs" onclick="switchPage('logs')"><span class="nav-icon">▤</span> Bot Logs</button>
+
+  <div class="nav-section">Settings</div>
+  <button class="nav-item" data-page="config" onclick="switchPage('config')"><span class="nav-icon">⚙</span> Config</button>
+</aside>
+
+<main class="main">
 <header>
-  <h1>▣ DCA BOT</h1>
   <span class="badge gray" id="modeLabel">—</span>
   <span class="badge gray" id="reopenLabel">—</span>
   <span class="badge gray" id="trendIntervalLabel">—</span>
+  <span class="badge gray" id="entryFilterLabel" style="display:none">—</span>
   <div class="top-right">
     <input id="apiUrl" style="width:210px" placeholder="http://localhost:3001">
     <input id="apiSecret" type="password" style="width:130px" placeholder="Secret (opsional)">
@@ -78,6 +123,7 @@ tr.day-detail th{background:var(--surface)}
   </div>
 </header>
 
+<div class="page active" data-page="overview">
 <div class="stats">
   <div class="stat"><div class="stat-label">Total PnL</div><div class="stat-value" id="st-pnl">—</div></div>
   <div class="stat"><div class="stat-label">PnL Hari Ini</div><div class="stat-value" id="st-pnl-today">—</div></div>
@@ -101,25 +147,74 @@ tr.day-detail th{background:var(--surface)}
     <button class="btn success" id="cp-apply-btn" onclick="doApplyCompound()" disabled>Terapkan Compounding</button>
   </div>
 </div>
+</div><!-- /page overview -->
 
+<div class="page" data-page="pending">
+<div class="panel" id="pending-panel" style="display:none">
+  <div class="panel-header">
+    <span>⏸ Entry Pending</span>
+    <span class="badge yellow" id="pendingBadge">—</span>
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Symbol</th><th>Nunggu</th><th>Action</th></tr></thead>
+    <tbody id="pending-body"></tbody>
+  </table></div>
+  <div class="day-note">ℹ️ Deal ini nunggu harga naik di atas EMA (Entry Filter) sebelum bot buka base order-nya. Dicek ulang otomatis tiap loop.</div>
+</div>
+
+<div class="panel" id="limit-pending-panel" style="display:none">
+  <div class="panel-header">
+    <span>📝 Limit Order Pending</span>
+    <span class="badge yellow" id="limitPendingBadge">—</span>
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Symbol</th><th>Harga Limit</th><th>Qty</th><th>Nunggu</th><th>Action</th></tr></thead>
+    <tbody id="limit-pending-body"></tbody>
+  </table></div>
+  <div class="day-note">ℹ️ Base order dipasang sebagai LIMIT order, belum aktif sampai kefill. Otomatis dibatalkan kalau tidak kefill dalam batas waktu timeout (lihat Config).</div>
+</div>
+</div><!-- /page pending -->
+
+<div class="page" data-page="deals">
 <div class="panel">
   <div class="panel-header">
     <span>📂 Deal Aktif</span>
-    <span style="display:flex;gap:6px">
+    <span style="display:flex;gap:6px;flex-wrap:wrap">
       <input id="startSymbol" placeholder="BTCUSDT" style="width:110px;text-transform:uppercase">
+      <input id="startPrice" type="number" step="any" placeholder="Harga (opsional)" style="width:140px" title="Kosongkan utk market order / default config. Isi utk limit buy PERSIS di harga ini.">
       <button class="btn success" onclick="doStart()">+ Buka Deal</button>
     </span>
   </div>
-  <table>
-    <thead><tr><th>Symbol</th><th>Avg Entry</th><th>Now</th><th>PnL %</th><th>PnL USDT</th><th>SO</th><th>Next SO</th><th>TP</th><th>SL</th><th>Trend</th><th>Action</th></tr></thead>
-    <tbody id="deals-body"><tr><td colspan="11" class="empty">Belum connect</td></tr></tbody>
-  </table>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Symbol</th><th>Total USDT</th><th>Avg Entry</th><th>Now</th><th>PnL % (net fee)</th><th>PnL USDT (net fee)</th><th>SO</th><th>Next SO</th><th>TP</th><th>SL</th><th>Trend</th><th>Action</th></tr></thead>
+    <tbody id="deals-body"><tr><td colspan="12" class="empty">Belum connect</td></tr></tbody>
+  </table></div>
 </div>
+</div><!-- /page deals -->
 
+<div class="page" data-page="position">
+<div class="panel">
+  <div class="panel-header">
+    <span>🎯 Manual Position (di luar DCA)</span>
+    <span style="display:flex;gap:6px;flex-wrap:wrap">
+      <input id="posSymbol" placeholder="BTCUSDT" style="width:110px;text-transform:uppercase">
+      <input id="posBudget" type="number" step="any" placeholder="Budget USDT" style="width:110px">
+      <button class="btn success" onclick="doAddPosition()" title="Entry pertama buka posisi baru; kalau sudah ada posisi di symbol ini, jadi entry tambahan">+ Entry</button>
+    </span>
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Symbol</th><th>Total USDT</th><th>Avg Entry</th><th>Now</th><th>PnL % (net fee)</th><th>PnL USDT (net fee)</th><th>Entry ke</th><th>SL</th><th>Trailing</th><th>Action</th></tr></thead>
+    <tbody id="positions-body"><tr><td colspan="10" class="empty">Belum ada Manual Position aktif</td></tr></tbody>
+  </table></div>
+  <div class="day-note">ℹ️ Entry manual — kamu yang tentukan kapan & berapa besar tiap entry (bukan aturan safety order DCA). Stop Loss aktif dari awal, mengikuti avg price terbaru. Trailing Stop baru aktif setelah harga naik sekian % dari avg entry, lalu mengikuti harga tertinggi — <b>tiap ada entry tambahan, status trailing di-reset dan mulai lagi dari nol</b> berdasarkan avg price yang baru (supaya tidak salah trigger karena peak lama sudah tidak relevan). Klik <b>⏸ Hold</b> kalau mau tahan eksekusi jual sementara buat holding jangka panjang — peak tetap di-track, Stop Loss tetap jalan normal.</div>
+</div>
+</div><!-- /page position -->
+
+<div class="page" data-page="history">
 <div class="panel">
   <div class="panel-header">
     <span>📅 PnL Harian</span>
-    <span style="display:flex;gap:6px;align-items:center">
+    <span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
       <select id="dailyRange" onchange="renderDailyFromCache()" style="width:120px">
         <option value="14">14 hari</option>
         <option value="30" selected>30 hari</option>
@@ -129,13 +224,48 @@ tr.day-detail th{background:var(--surface)}
       <button class="btn" onclick="loadHistory()">↻ Refresh</button>
     </span>
   </div>
-  <table>
+  <div class="table-wrap"><table>
     <thead><tr><th>Tanggal</th><th>Deal Ditutup</th><th>Win Rate</th><th>PnL (USDT)</th></tr></thead>
     <tbody id="daily-body"><tr><td colspan="4" class="empty">—</td></tr></tbody>
-  </table>
+  </table></div>
   <div class="day-note">ℹ️ Klik baris tanggal utk lihat detail deal di hari itu. Deal yang ditutup lewat <b>Manual Sell</b> (di luar bot) ikut tercatat tapi PnL-nya tidak dihitung ke Total PnL / Win Rate / Compounding.</div>
 </div>
+</div><!-- /page history -->
 
+<div class="page" data-page="poshistory">
+<div class="panel" id="pos-history-panel">
+  <div class="panel-header">
+    <span>📜 Riwayat Manual Position</span>
+    <button class="btn" onclick="loadPositionHistory()">↻ Refresh</button>
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Symbol</th><th>Avg</th><th>Exit</th><th>PnL%</th><th>PnL USDT (net fee)</th><th>Entry</th><th>Reason</th><th>Waktu</th></tr></thead>
+    <tbody id="pos-history-body"><tr><td colspan="8" class="empty">—</td></tr></tbody>
+  </table></div>
+</div>
+</div><!-- /page poshistory -->
+
+<div class="page" data-page="logs">
+<div class="panel">
+  <div class="panel-header">
+    <span>▤ Bot Logs</span>
+    <span style="display:flex;gap:6px;align-items:center">
+      <select id="logLines" style="width:110px">
+        <option value="100">100 baris</option>
+        <option value="150" selected>150 baris</option>
+        <option value="300">300 baris</option>
+        <option value="1000">1000 baris</option>
+      </select>
+      <button class="btn" onclick="loadLogs()">↻ Refresh</button>
+    </span>
+  </div>
+  <div style="padding:14px">
+    <div class="log-box" id="log-box">Belum dimuat — klik Refresh.</div>
+  </div>
+</div>
+</div><!-- /page logs -->
+
+<div class="page" data-page="config">
 <div class="panel">
   <div class="panel-header">
     <span>⚙ Config DCA</span>
@@ -146,8 +276,10 @@ tr.day-detail th{background:var(--surface)}
   </div>
   <div class="config-grid" id="config-grid"><div class="empty" style="grid-column:1/-1">Loading...</div></div>
 </div>
+</div><!-- /page config -->
 
-</div>
+</main>
+</div><!-- /app-shell -->
 
 <script>
 // Default: kalau belum pernah disimpan, pakai origin halaman ini sendiri.
@@ -175,8 +307,35 @@ const REASON_LABEL = {
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('apiUrl').value = API;
   document.getElementById('apiSecret').value = API_SECRET;
+  switchPage(localStorage.getItem('dca_dashboard_page') || 'overview');
   connect();
 });
+
+// ── Sidebar page switching ──────────────────────────────────────────────
+function switchPage(pageId) {
+  document.querySelectorAll('.page').forEach(el => {
+    el.classList.toggle('active', el.dataset.page === pageId);
+  });
+  document.querySelectorAll('.nav-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.page === pageId);
+  });
+  localStorage.setItem('dca_dashboard_page', pageId);
+  if (pageId === 'logs') loadLogs();
+}
+
+async function loadLogs() {
+  const box = document.getElementById('log-box');
+  const n = document.getElementById('logLines').value;
+  box.textContent = 'Memuat...';
+  try {
+    const res = await apiFetch(`/api/logs?n=${n}`);
+    if (!res.ok) { box.textContent = '❌ ' + (res.error || 'Gagal memuat log'); return; }
+    box.textContent = (res.logs && res.logs.length) ? res.logs.join('\n') : 'Belum ada log utk hari ini.';
+    box.scrollTop = box.scrollHeight;
+  } catch (e) {
+    box.textContent = '❌ Gagal connect: ' + e.message;
+  }
+}
 
 function connect() {
   API = document.getElementById('apiUrl').value.replace(/\/$/, '') || window.location.origin;
@@ -186,9 +345,11 @@ function connect() {
   refreshAll();
   loadHistory();
   loadCompoundStatus();
+  loadPositionHistory();
   setInterval(refreshAll, 10000);
   setInterval(loadHistory, 60000);        // history + PnL harian cukup di-refresh tiap 1 menit
   setInterval(loadCompoundStatus, 15000); // compounding pool cukup tiap 15 detik
+  setInterval(loadPositionHistory, 60000);
 }
 
 async function apiFetch(path, opts = {}) {
@@ -215,18 +376,84 @@ async function refreshAll() {
     trendIntervalEl.textContent = `🔎 EMA${emaP} @ ${tf}, cek tiap ${d.config.trading.trendCheckIntervalMin ?? 30}m`;
     trendIntervalEl.className = 'badge gray';
 
+    const entryFilterEl = document.getElementById('entryFilterLabel');
+    if (d.config.trading.entryFilterEnabled) {
+      const efP = d.config.trading.entryFilterEmaPeriod ?? 9;
+      const efTf = (d.config.trading.entryFilterTimeframe ?? '5min').toUpperCase();
+      entryFilterEl.textContent = `🚦 Entry Filter: EMA${efP} @ ${efTf}`;
+      entryFilterEl.style.display = 'inline-block';
+    } else {
+      entryFilterEl.style.display = 'none';
+    }
+
     document.getElementById('st-pnl').textContent = (d.stats.totalPnlUsdt>=0?'+':'') + d.stats.totalPnlUsdt.toFixed(2) + ' USDT';
     document.getElementById('st-pnl').className = 'stat-value ' + (d.stats.totalPnlUsdt>=0?'green':'red');
     document.getElementById('st-active').textContent = d.stats.activeDeals + '/' + d.config.trading.maxActiveDeals;
     document.getElementById('st-closed').textContent = d.stats.closedCount;
     document.getElementById('st-order').textContent = d.config.dca.baseOrderSize + ' / ' + d.config.dca.safetyOrderSize + ' USDT';
     renderDeals(d.deals);
+    renderPending(d.pendingEntries || {});
+    renderLimitPending(d.pendingLimitEntries || {});
+    renderPositions(d.positions || {});
 
     // Jangan timpa form Config kalau user sedang mengetik/belum Save.
     if (!configDirty) {
       renderConfig(d.config);
     }
-  } catch(e) { document.getElementById('deals-body').innerHTML = '<tr><td colspan="11" class="empty">Gagal connect ke ' + API + '</td></tr>'; }
+  } catch(e) { document.getElementById('deals-body').innerHTML = '<tr><td colspan="12" class="empty">Gagal connect ke ' + API + '</td></tr>'; }
+}
+
+// ── Entry Pending ────────────────────────────────────────────────────────
+function renderPending(pending) {
+  const syms = Object.keys(pending);
+  const panel = document.getElementById('pending-panel');
+  if (!syms.length) { panel.style.display = 'none'; return; }
+  panel.style.display = 'block';
+
+  document.getElementById('pendingBadge').textContent = `${syms.length} pending`;
+
+  document.getElementById('pending-body').innerHTML = syms.map(sym => {
+    const menit = Math.round((Date.now() - pending[sym].requestedAt) / 60000);
+    return `<tr>
+      <td><b>${sym}</b></td>
+      <td>${menit} menit</td>
+      <td><button class="btn ghost small" onclick="doCancelEntry('${sym}')">Batalkan</button></td>
+    </tr>`;
+  }).join('');
+}
+
+async function doCancelEntry(sym) {
+  if (!confirm(`Batalkan pending entry ${sym}?`)) return;
+  const res = await apiPost('/api/cancel-entry', { symbol: sym });
+  if (res.ok) { refreshAll(); } else { alert('❌ ' + res.error); }
+}
+
+// ── Limit Order Pending (base order dipasang sbg LIMIT order, nunggu fill) ─
+function renderLimitPending(pending) {
+  const syms = Object.keys(pending);
+  const panel = document.getElementById('limit-pending-panel');
+  if (!syms.length) { panel.style.display = 'none'; return; }
+  panel.style.display = 'block';
+
+  document.getElementById('limitPendingBadge').textContent = `${syms.length} pending`;
+
+  document.getElementById('limit-pending-body').innerHTML = syms.map(sym => {
+    const info = pending[sym];
+    const menit = Math.round((Date.now() - info.placedAt) / 60000);
+    return `<tr>
+      <td><b>${sym}</b></td>
+      <td>${info.price}</td>
+      <td>${info.qty}</td>
+      <td>${menit} menit</td>
+      <td><button class="btn ghost small" onclick="doCancelLimit('${sym}')">Batalkan</button></td>
+    </tr>`;
+  }).join('');
+}
+
+async function doCancelLimit(sym) {
+  if (!confirm(`Batalkan limit order ${sym}?\n\nOrder yang belum kefill akan dibatalkan di Bitget.`)) return;
+  const res = await apiPost('/api/cancel-limit', { symbol: sym });
+  if (res.ok) { refreshAll(); } else { alert('❌ ' + res.error); }
 }
 
 // ── Compounding ──────────────────────────────────────────────────────────
@@ -268,7 +495,7 @@ async function doApplyCompound() {
 function renderDeals(deals) {
   const entries = Object.entries(deals || {});
   const tbody = document.getElementById('deals-body');
-  if (!entries.length) { tbody.innerHTML = '<tr><td colspan="11" class="empty">Tidak ada deal aktif</td></tr>'; return; }
+  if (!entries.length) { tbody.innerHTML = '<tr><td colspan="12" class="empty">Tidak ada deal aktif</td></tr>'; return; }
   tbody.innerHTML = entries.map(([sym, d]) => {
     const sign = d.pnlPct >= 0 ? '+' : '';
     const cls  = d.pnlPct >= 0 ? 'green' : 'red';
@@ -278,12 +505,16 @@ function renderDeals(deals) {
       : '';
     const t = TREND_INFO[d.trendStatus] || { label: '— belum dicek', cls: 'gray' };
     const holdTag = d.tpHold ? '<br><span class="hold-tag">⏸ HOLD</span>' : '';
+    const pnlTitle = (d.buyFeeUsdt != null && d.estSellFeeUsdt != null)
+      ? `title="Sudah dikurangi fee beli aktual (${d.buyFeeUsdt.toFixed(4)} USDT) + estimasi fee jual (${d.estSellFeeUsdt.toFixed(4)} USDT, pakai rate config takerFeePercent — fee jual PASTI baru diketahui setelah order dieksekusi)"`
+      : '';
     return `<tr class="${d.tpHold ? 'tp-hold' : ''}">
       <td><b>${sym}</b></td>
+      <td>${d.totalSpent != null ? d.totalSpent.toFixed(2) + ' USDT' : '—'}</td>
       <td>${d.avgPrice?.toFixed(6)}</td>
       <td>${d.currentPrice ?? '—'}</td>
-      <td style="color:var(--${cls})">${sign}${d.pnlPct?.toFixed(2) ?? '—'}%</td>
-      <td style="color:var(--${cls})">${d.pnlUsdt != null ? (sign + d.pnlUsdt.toFixed(2) + ' USDT') : '—'}</td>
+      <td style="color:var(--${cls})" ${pnlTitle}>${sign}${d.pnlPct?.toFixed(2) ?? '—'}%</td>
+      <td style="color:var(--${cls})" ${pnlTitle}>${d.pnlUsdt != null ? (sign + d.pnlUsdt.toFixed(2) + ' USDT') : '—'}</td>
       <td>${d.safetyOrdersFilled}</td>
       <td>${d.nextSOPrice?.toFixed(6) ?? 'habis'}</td>
       <td style="color:var(--green)" ${tpTitle}>${d.tpPrice?.toFixed(6) ?? '—'}${holdTag}</td>
@@ -296,13 +527,137 @@ function renderDeals(deals) {
       </td>
       <td>
         <div class="action-cell">
+          <button class="btn ghost small" onclick="doAddDealEntry('${sym}')" title="Entry manual tambahan ke deal ini SEKARANG (market buy), budget bebas, DI LUAR kuota Safety Order">+ Entry</button>
           <button class="btn danger small" onclick="doClose('${sym}')" title="Bot eksekusi market sell asli">Close (Sell)</button>
           <button class="btn ghost small" onclick="doUntrack('${sym}')" title="Kamu sudah jual sendiri di luar bot — bot cuma berhenti mantau, TIDAK ada order, PnL tidak dihitung">Manual Sell</button>
           ${d.tpHold
             ? `<button class="btn warn small" onclick="doResume('${sym}')" title="Aktifkan lagi TP normal">▶ Resume TP</button>`
             : `<button class="btn ghost small" onclick="doHold('${sym}')" title="Bekukan TP sementara — SO & SL tetap normal, nunggu harga naik lebih tinggi dulu">⏸ Hold TP</button>`}
+          <button class="btn ghost small" onclick="doMigrateToPosition('${sym}')" title="Pindahkan ke Manual Position — TIDAK ADA transaksi ke Bitget, cuma ganti cara bot mengelola (SO/TP DCA dilepas, diganti SL tetap + Trailing Stop)">🎯 Manual Position</button>
         </div>
       </td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Manual Position (DILUAR DCA) — entry manual + trailing stop ────────────
+function renderPositions(positions) {
+  const entries = Object.entries(positions || {});
+  const tbody = document.getElementById('positions-body');
+  if (!entries.length) { tbody.innerHTML = '<tr><td colspan="10" class="empty">Belum ada Manual Position aktif</td></tr>'; return; }
+  tbody.innerHTML = entries.map(([sym, p]) => {
+    const sign = p.pnlPct >= 0 ? '+' : '';
+    const cls  = p.pnlPct >= 0 ? 'green' : 'red';
+    const pnlTitle = (p.buyFeeUsdt != null && p.estSellFeeUsdt != null)
+      ? `title="Sudah dikurangi fee beli aktual (${p.buyFeeUsdt.toFixed(4)} USDT) + estimasi fee jual (${p.estSellFeeUsdt.toFixed(4)} USDT)"`
+      : '';
+    const activationPrice = p.avgPrice * (1 + p.trailingActivationPercent / 100);
+    const holdTag = p.trailingHold ? '<br><span class="hold-tag">⏸ HOLD</span>' : '';
+    const trailingCell = p.trailingActive
+      ? `<span class="badge green">🔔 ON</span>${holdTag}<br><span style="font-size:10px;color:var(--muted)">peak ${p.peakPrice.toFixed(6)} · stop ${p.trailingStopPrice.toFixed(6)}</span>`
+      : `<span class="badge gray">OFF</span>${holdTag}<br><span style="font-size:10px;color:var(--muted)">aktif di atas ${activationPrice.toFixed(6)}</span>`;
+    return `<tr class="${p.trailingHold ? 'tp-hold' : ''}">
+      <td><b>${sym}</b></td>
+      <td>${p.totalSpent != null ? p.totalSpent.toFixed(2) + ' USDT' : '—'}</td>
+      <td>${p.avgPrice?.toFixed(6)}</td>
+      <td>${p.currentPrice ?? '—'}</td>
+      <td style="color:var(--${cls})" ${pnlTitle}>${sign}${p.pnlPct?.toFixed(2) ?? '—'}%</td>
+      <td style="color:var(--${cls})" ${pnlTitle}>${p.pnlUsdt != null ? (sign + p.pnlUsdt.toFixed(2) + ' USDT') : '—'}</td>
+      <td>${p.entries.length}</td>
+      <td style="color:var(--red)">${p.slPrice?.toFixed(6) ?? '—'}</td>
+      <td>${trailingCell}</td>
+      <td>
+        <div class="action-cell">
+          <button class="btn ghost small" onclick="promptAddPosition('${sym}')" title="Entry tambahan di symbol ini">+ Entry</button>
+          <button class="btn warn small" onclick="doPartialSellPosition('${sym}', 50)" title="Jual 50% qty sekarang, sisa 50% TETAP AKTIF dengan avg price/SL/trailing yang SAMA (tidak berubah)">Sell 50%</button>
+          <button class="btn danger small" onclick="doClosePosition('${sym}')" title="Bot eksekusi market sell asli utk SELURUH qty">Close (Sell)</button>
+          ${p.trailingHold
+            ? `<button class="btn warn small" onclick="doResumePositionTrailing('${sym}')" title="Aktifkan lagi eksekusi jual Trailing Stop">▶ Resume</button>`
+            : `<button class="btn ghost small" onclick="doHoldPositionTrailing('${sym}')" title="Tahan sementara eksekusi jual Trailing Stop — buat holding jangka panjang. SL tetap jalan normal, peak tetap di-track.">⏸ Hold</button>`}
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function doAddPosition() {
+  const sym = document.getElementById('posSymbol').value.trim().toUpperCase();
+  const budgetRaw = document.getElementById('posBudget').value.trim();
+  if (!sym) return alert('Masukkan symbol');
+  const budget = parseFloat(budgetRaw);
+  if (!(budget > 0)) return alert('Budget tidak valid');
+
+  if (!confirm(`Entry ${sym} sebesar ${budget} USDT (market order)?\n\nKalau belum ada Manual Position di symbol ini, ini akan membuka posisi baru. Kalau sudah ada, ini jadi entry TAMBAHAN (avg price akan di-recalculate).`)) return;
+
+  const res = await apiPost('/api/position/add', { symbol: sym, budget });
+  alert(res.ok ? `✅ Entry ${sym} berhasil. Avg price sekarang: ${res.position.avgPrice.toFixed(6)}` : `❌ ${res.error}`);
+  if (res.ok) {
+    document.getElementById('posSymbol').value = '';
+    document.getElementById('posBudget').value = '';
+    refreshAll();
+  }
+}
+
+function promptAddPosition(sym) {
+  document.getElementById('posSymbol').value = sym;
+  document.getElementById('posBudget').focus();
+}
+
+async function doClosePosition(sym) {
+  if (!confirm(`Tutup Manual Position ${sym} sekarang?\n\nBot akan eksekusi MARKET SELL asli ke Bitget utk SELURUH qty di posisi ini.`)) return;
+  const res = await apiPost('/api/position/close', { symbol: sym });
+  alert(res.ok ? `✅ Position ${sym} ditutup` : `❌ ${res.error}`);
+  if (res.ok) { refreshAll(); loadPositionHistory(); }
+}
+
+async function doPartialSellPosition(sym, percent) {
+  if (!confirm(`Jual ${percent}% dari position ${sym} sekarang?\n\nSisa ${100 - percent}% TETAP AKTIF dengan avg price, SL, dan status trailing yang SAMA (tidak berubah).`)) return;
+  const res = await apiPost('/api/position/partial-close', { symbol: sym, percent });
+  if (res.ok) {
+    alert(res.fullyClosed
+      ? `✅ Position ${sym} habis terjual seluruhnya (sisa qty di bawah presisi minimum).`
+      : `✅ Terjual ${percent}% dari ${sym}. Sisa qty: ${res.position.totalQty}`);
+    refreshAll();
+    loadPositionHistory();
+  } else {
+    alert('❌ ' + res.error);
+  }
+}
+
+// ── Hold Trailing — tahan sementara eksekusi jual trailing stop (holding jangka panjang) ─
+async function doHoldPositionTrailing(sym) {
+  if (!confirm(`Tahan Trailing Stop utk ${sym}?\n\nPosisi TIDAK akan dijual walau trailing stop sudah kesentuh. Stop Loss tetap jalan normal, dan peak tetap di-track di belakang layar. Klik "Resume" nanti kalau mau balikin ke normal.`)) return;
+  const res = await apiPost('/api/position/hold', { symbol: sym });
+  if (res.ok) { refreshAll(); } else { alert('❌ ' + res.error); }
+}
+
+async function doResumePositionTrailing(sym) {
+  const res = await apiPost('/api/position/resume', { symbol: sym });
+  if (res.ok) { refreshAll(); } else { alert('❌ ' + res.error); }
+}
+
+async function loadPositionHistory() {
+  const res = await apiFetch('/api/position/history?limit=200');
+  const tbody = document.getElementById('pos-history-body');
+  const list = (res.ok && res.positions) ? res.positions : [];
+  if (!list.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty">Belum ada Manual Position yang closed</td></tr>'; return; }
+
+  const REASON_LABEL_POS = { stop_loss: '🛑 Stop Loss', trailing_stop: '📉 Trailing Stop', manual_close: '🖐 Manual Close', partial_sell: '✂️ Partial Sell' };
+  tbody.innerHTML = list.map(p => {
+    const sign = p.pnlPct >= 0 ? '+' : '';
+    const cls  = p.pnlPct >= 0 ? 'green' : 'red';
+    const reasonText = p.reason === 'partial_sell'
+      ? `${REASON_LABEL_POS[p.reason]} (${p.partialPercent}%)`
+      : (REASON_LABEL_POS[p.reason] || p.reason);
+    return `<tr>
+      <td><b>${p.symbol}</b></td>
+      <td>${p.avgPrice.toFixed(6)}</td>
+      <td>${p.exitPrice != null ? p.exitPrice.toFixed(6) : '—'}</td>
+      <td style="color:var(--${cls})">${sign}${p.pnlPct.toFixed(2)}%</td>
+      <td style="color:var(--${cls})">${sign}${p.pnlUsdt.toFixed(2)} USDT</td>
+      <td>${p.entries.length}</td>
+      <td>${reasonText}</td>
+      <td style="font-size:10px">${new Date(p.closedAt).toLocaleString('id-ID')}</td>
     </tr>`;
   }).join('');
 }
@@ -394,21 +749,23 @@ function buildDayDetailHtml(key) {
     const sign = !isUntracked && d.pnlPct >= 0 ? '+' : '';
     const cls  = !isUntracked && d.pnlPct >= 0 ? 'green' : 'red';
     const reasonText = REASON_LABEL[d.reason] || d.reason;
+    const feeText = isUntracked ? '—' : (d.totalFeeUsdt != null ? d.totalFeeUsdt.toFixed(4) + ' USDT' : '—');
     return `<tr class="${isUntracked ? 'untracked' : ''}">
       <td><b>${d.symbol}</b></td>
       <td>${d.avgPrice.toFixed(6)}</td>
       <td>${d.exitPrice != null ? d.exitPrice.toFixed(6) : '—'}</td>
       <td ${isUntracked ? '' : `style="color:var(--${cls})"`}>${isUntracked ? '—' : sign + d.pnlPct.toFixed(2) + '%'}</td>
       <td ${isUntracked ? '' : `style="color:var(--${cls})"`}>${isUntracked ? '— (manual)' : sign + d.pnlUsdt.toFixed(2) + ' USDT'}</td>
+      <td style="color:var(--muted)" title="Fee beli + jual, sudah dipotong dari PnL di kolom sebelah">${feeText}</td>
       <td>${d.safetyOrdersFilled}</td>
       <td>${reasonText}</td>
       <td style="font-size:10px">${new Date(d.closedAt).toLocaleString('id-ID')}</td>
     </tr>`;
   }).join('');
-  return `<table>
-    <thead><tr><th>Symbol</th><th>Avg</th><th>Exit</th><th>PnL%</th><th>PnL USDT</th><th>SO</th><th>Reason</th><th>Waktu</th></tr></thead>
+  return `<div class="table-wrap"><table>
+    <thead><tr><th>Symbol</th><th>Avg</th><th>Exit</th><th>PnL%</th><th>PnL USDT (net fee)</th><th>Fee</th><th>SO</th><th>Reason</th><th>Waktu</th></tr></thead>
     <tbody>${rows}</tbody>
-  </table>`;
+  </table></div>`;
 }
 
 function toggleDay(key) {
@@ -453,7 +810,7 @@ function renderDailyFromCache() {
 }
 
 function renderConfig(cfg) {
-  const d = cfg.dca, t = cfg.trading;
+  const d = cfg.dca, t = cfg.trading, p = cfg.position || {};
   document.getElementById('config-grid').innerHTML = `
     <div class="field"><label>Base Order (USDT)</label><input id="cfg-base" type="number" value="${d.baseOrderSize}"></div>
     <div class="field"><label>Safety Order (USDT)</label><input id="cfg-so" type="number" value="${d.safetyOrderSize}"></div>
@@ -481,9 +838,39 @@ function renderConfig(cfg) {
       </select>
     </div>
     <div class="field"><label>Cek Tren (menit)</label><input id="cfg-trendinterval" type="number" value="${t.trendCheckIntervalMin ?? 30}"></div>
+    <div class="field"><label>Entry Filter Aktif</label><select id="cfg-entryfilteron"><option value="true" ${t.entryFilterEnabled?'selected':''}>Ya</option><option value="false" ${!t.entryFilterEnabled?'selected':''}>Tidak</option></select></div>
+    <div class="field"><label>Entry Filter EMA Period</label><input id="cfg-entryema" type="number" value="${t.entryFilterEmaPeriod ?? 9}"></div>
+    <div class="field"><label>Entry Filter Timeframe</label>
+      <select id="cfg-entrytf">
+        <option value="1min" ${(t.entryFilterTimeframe ?? '5min')==='1min'?'selected':''}>1 menit</option>
+        <option value="3min" ${(t.entryFilterTimeframe ?? '5min')==='3min'?'selected':''}>3 menit</option>
+        <option value="5min" ${(t.entryFilterTimeframe ?? '5min')==='5min'?'selected':''}>5 menit</option>
+        <option value="15min" ${(t.entryFilterTimeframe ?? '5min')==='15min'?'selected':''}>15 menit</option>
+        <option value="30min" ${(t.entryFilterTimeframe ?? '5min')==='30min'?'selected':''}>30 menit</option>
+        <option value="1h" ${(t.entryFilterTimeframe ?? '5min')==='1h'?'selected':''}>1 jam</option>
+      </select>
+    </div>
+    <div class="field"><label>Limit Order Timeout (jam)</label><input id="cfg-entrylimittimeout" type="number" step="0.1" min="0" value="${((t.entryLimitTimeoutMin ?? 15) / 60).toFixed(2)}" title="Batas waktu tunggu fill limit order base order sebelum otomatis dibatalkan. Disimpan internal dalam menit (entryLimitTimeoutMin), ditampilkan di sini dalam jam."></div>
     <div class="field"><label>Compounding Aktif</label><select id="cfg-compoundon"><option value="true" ${t.compoundingEnabled?'selected':''}>Ya</option><option value="false" ${!t.compoundingEnabled?'selected':''}>Tidak</option></select></div>
     <div class="field"><label>Compounding Threshold (USDT)</label><input id="cfg-compoundthreshold" type="number" value="${t.compoundingThresholdUsdt ?? 10}"></div>
     <div class="field"><label>Compounding Auto-Apply</label><select id="cfg-compoundauto"><option value="false" ${!t.compoundingAutoApply?'selected':''}>Manual (nunggu konfirmasi)</option><option value="true" ${t.compoundingAutoApply?'selected':''}>Otomatis</option></select></div>
+    <div class="field" style="grid-column:1/-1;border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
+      <label style="font-size:11px;font-weight:600;text-transform:none;letter-spacing:0;color:var(--text)">🔀 Auto-Migrate ke Manual Position</label>
+    </div>
+    <div class="field"><label>Auto-Migrate Aktif</label><select id="cfg-automigrateon"><option value="true" ${t.autoMigrateToPositionEnabled?'selected':''}>Ya</option><option value="false" ${!t.autoMigrateToPositionEnabled?'selected':''}>Tidak</option></select></div>
+    <div class="field"><label>Di SO Keberapa</label><input id="cfg-automigrateso" type="number" min="1" value="${t.autoMigrateToPositionAtSO ?? 3}" title="Begitu Safety Order ke-N ini TERISI, deal DCA otomatis dipindahkan ke Manual Position — SO/TP DCA dilepas, diganti Stop Loss tetap + Trailing Stop (setting di bawah)."></div>
+    <div class="field" style="grid-column:1/-1">
+      <div class="day-note" style="border-top:none;padding:6px 0 0">ℹ️ TIDAK ADA transaksi ke Bitget saat migrasi — cuma cara bot mengelola deal itu yang berubah. Ditolak otomatis (deal DCA tetap jalan) kalau symbol itu kebetulan sudah punya Manual Position aktif juga.</div>
+    </div>
+    <div class="field" style="grid-column:1/-1;border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
+      <label style="font-size:11px;font-weight:600;text-transform:none;letter-spacing:0;color:var(--text)">🎯 Manual Position (di luar DCA) — SEPENUHNYA terpisah dari setting DCA di atas</label>
+    </div>
+    <div class="field"><label>Position — Stop Loss (%)</label><input id="cfg-pos-sl" type="number" step="0.1" value="${p.stopLossPercent ?? 10}" title="Basis avgPrice, aktif SEPANJANG WAKTU sejak entry pertama (beda dari SL DCA yang baru aktif setelah SO habis)."></div>
+    <div class="field"><label>Position — Trailing Aktivasi (%)</label><input id="cfg-pos-trailact" type="number" step="0.1" value="${p.trailingActivationPercent ?? 3}" title="Trailing baru aktif setelah harga naik sekian % dari avgPrice."></div>
+    <div class="field"><label>Position — Trailing Stop (%)</label><input id="cfg-pos-trailstop" type="number" step="0.1" value="${p.trailingStopPercent ?? 2}" title="Setelah trailing aktif, posisi ditutup kalau harga turun sekian % dari harga tertinggi (peak) yang tercapai."></div>
+    <div class="field" style="grid-column:1/-1">
+      <div class="day-note" style="border-top:none;padding:6px 0 0">ℹ️ Perubahan di sini cuma jadi DEFAULT utk posisi BARU yang dibuka setelah Save. Posisi yang sudah berjalan tidak berubah.</div>
+    </div>
   `;
 
   const grid = document.getElementById('config-grid');
@@ -518,9 +905,20 @@ async function saveConfig() {
       trendEmaPeriod: parseInt(document.getElementById('cfg-trendema').value),
       trendTimeframe: document.getElementById('cfg-trendtf').value,
       trendCheckIntervalMin: parseInt(document.getElementById('cfg-trendinterval').value),
+      entryFilterEnabled: document.getElementById('cfg-entryfilteron').value === 'true',
+      entryFilterEmaPeriod: parseInt(document.getElementById('cfg-entryema').value),
+      entryFilterTimeframe: document.getElementById('cfg-entrytf').value,
+      entryLimitTimeoutMin: Math.round(parseFloat(document.getElementById('cfg-entrylimittimeout').value) * 60),
       compoundingEnabled: document.getElementById('cfg-compoundon').value === 'true',
       compoundingThresholdUsdt: parseFloat(document.getElementById('cfg-compoundthreshold').value),
       compoundingAutoApply: document.getElementById('cfg-compoundauto').value === 'true',
+      autoMigrateToPositionEnabled: document.getElementById('cfg-automigrateon').value === 'true',
+      autoMigrateToPositionAtSO: parseInt(document.getElementById('cfg-automigrateso').value),
+    },
+    position: {
+      stopLossPercent: parseFloat(document.getElementById('cfg-pos-sl').value),
+      trailingActivationPercent: parseFloat(document.getElementById('cfg-pos-trailact').value),
+      trailingStopPercent: parseFloat(document.getElementById('cfg-pos-trailstop').value),
     },
   };
   const res = await apiPost('/api/config', updates);
@@ -536,10 +934,22 @@ async function saveConfig() {
 async function doStart() {
   const sym = document.getElementById('startSymbol').value.trim().toUpperCase();
   if (!sym) return alert('Masukkan symbol');
-  if (!confirm(`Buka deal DCA untuk ${sym}?`)) return;
-  const res = await apiPost('/api/start', { symbol: sym });
-  alert(res.ok ? `✅ Deal ${sym} dibuka` : `❌ ${res.error}`);
-  if (res.ok) { document.getElementById('startSymbol').value=''; refreshAll(); }
+  const priceRaw = document.getElementById('startPrice').value.trim();
+  const price = priceRaw ? parseFloat(priceRaw) : null;
+  if (priceRaw && !(price > 0)) return alert('Harga tidak valid');
+
+  const confirmMsg = price
+    ? `Buka deal DCA untuk ${sym} sebagai LIMIT ORDER @ ${price}?`
+    : `Buka deal DCA untuk ${sym}?`;
+  if (!confirm(confirmMsg)) return;
+
+  const res = await apiPost('/api/start', price ? { symbol: sym, price } : { symbol: sym });
+  if (res.pending) {
+    alert(`⏸ ${res.message}`);
+  } else {
+    alert(res.ok ? `✅ Deal ${sym} dibuka` : `❌ ${res.error}`);
+  }
+  if (res.ok) { document.getElementById('startSymbol').value=''; document.getElementById('startPrice').value=''; refreshAll(); }
 }
 
 async function doClose(sym) {
@@ -547,6 +957,35 @@ async function doClose(sym) {
   const res = await apiPost('/api/close', { symbol: sym });
   alert(res.ok ? `✅ Deal ${sym} ditutup` : `❌ ${res.error}`);
   if (res.ok) { refreshAll(); loadHistory(); loadCompoundStatus(); }
+}
+
+async function doAddDealEntry(sym) {
+  const budgetRaw = prompt(`Entry manual tambahan ke ${sym}\n\nBudget berapa USDT? (market buy sekarang, DI LUAR kuota Safety Order — tidak mengurangi maxSafetyOrders)`);
+  if (budgetRaw === null) return; // dibatalkan
+  const budget = parseFloat(budgetRaw);
+  if (!(budget > 0)) return alert('Budget tidak valid');
+
+  const res = await apiPost('/api/deal/add-entry', { symbol: sym, budget });
+  alert(res.ok ? `✅ Entry manual ${sym} berhasil. Avg price sekarang: ${res.deal.avgPrice.toFixed(6)}` : `❌ ${res.error}`);
+  if (res.ok) { refreshAll(); }
+}
+
+async function doMigrateToPosition(sym) {
+  if (!confirm(
+    `Pindahkan deal DCA ${sym} ke Manual Position?\n\n` +
+    `TIDAK ADA transaksi ke Bitget — qty/holding yang sudah dibeli TETAP SAMA.\n\n` +
+    `Yang berubah:\n` +
+    `• Take Profit & Safety Order otomatis DCA akan DILEPAS (tidak berlaku lagi)\n` +
+    `• Diganti Stop Loss TETAP + Trailing Stop (pakai default dari Config → Manual Position)\n` +
+    `• Riwayat entry & fee yang sudah ada ikut dibawa\n\n` +
+    `Aksi ini TIDAK BISA dibatalkan otomatis — kamu perlu setup manual lagi kalau mau balik ke DCA. Lanjutkan?`
+  )) return;
+
+  const res = await apiPost('/api/deal/migrate-to-position', { symbol: sym });
+  alert(res.ok
+    ? `✅ ${sym} sudah dipindahkan ke Manual Position.\nSL: ${res.position.slPrice?.toFixed(6) ?? '—'}\nTrailing aktif di atas: ${(res.position.avgPrice * (1 + res.position.trailingActivationPercent / 100)).toFixed(6)}`
+    : `❌ ${res.error}`);
+  if (res.ok) { refreshAll(); }
 }
 
 async function doUntrack(sym) {

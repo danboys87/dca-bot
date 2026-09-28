@@ -53,15 +53,52 @@ export async function notifySafetyOrder(deal, step) {
   );
 }
 
+/**
+ * Entry manual tambahan ke deal DCA (di luar kuota Safety Order — tidak
+ * mengurangi maxSafetyOrders, tidak mempercepat aktivasi SL).
+ */
+export async function notifyDealManualEntry(deal) {
+  const lastEntry = deal.orders[deal.orders.length - 1];
+  await send(
+    `✋ <b>Entry Manual Ditambahkan</b> — ${deal.symbol}\n` +
+    `Entry ini: ${lastEntry.qty} @ ${lastEntry.price} (${lastEntry.budget} USDT)\n` +
+    `Avg price baru: ${deal.avgPrice.toFixed(6)} | Total qty: ${deal.totalQty}\n` +
+    `TP baru: ${tpLabel(deal)} | SL: ${slLabel(deal)}\n` +
+    `SO terpakai: ${deal.safetyOrdersFilled} (tidak berubah — entry manual di luar kuota SO)\n` +
+    `SO berikutnya @ ${deal.nextSOPrice?.toFixed(6) ?? '(kuota SO habis)'}`
+  );
+}
+
+/**
+ * Deal DCA dipindahkan ke Manual Position — TIDAK ADA transaksi ke Bitget,
+ * murni perubahan cara bot mengelola posisi ini (SO/TP DCA dilepas, diganti
+ * SL tetap + Trailing Stop).
+ */
+export async function notifyDealMigratedToPosition(position, triggerNote = null) {
+  await send(
+    `🔀 <b>Deal Dipindahkan ke Manual Position</b> — ${position.symbol}\n` +
+    (triggerNote ? `<i>Dipicu otomatis: ${triggerNote}</i>\n` : '') +
+    `Avg price: ${position.avgPrice.toFixed(6)} | Total qty: ${position.totalQty} | Jumlah entry: ${position.entries.length}\n` +
+    `TIDAK ADA transaksi ke Bitget — cuma cara bot mengelola posisi ini yang berubah.\n\n` +
+    `SO/TP DCA sudah TIDAK berlaku lagi utk ${position.symbol}. Sekarang pakai:\n` +
+    `SL: ${position.slPrice?.toFixed(6) ?? '—'} (${position.stopLossPercent}%)\n` +
+    `Trailing aktif di atas: ${(position.avgPrice * (1 + position.trailingActivationPercent / 100)).toFixed(6)} (+${position.trailingActivationPercent}%), trail ${position.trailingStopPercent}%`
+  );
+}
+
 export async function notifyDealClosed(closed) {
   const emoji = closed.pnlPct >= 0 ? '🟢' : '🔴';
   const sign  = closed.pnlPct >= 0 ? '+' : '';
   const labels = { take_profit: '🎯 Take Profit', stop_loss: '🛑 Stop Loss', manual_close: '🖐 Manual Close' };
+  const feeLine = closed.totalFeeUsdt
+    ? `Fee: ${closed.totalFeeUsdt.toFixed(4)} USDT (beli ${closed.buyFeeUsdt.toFixed(4)} + jual ${closed.sellFeeUsdt.toFixed(4)}) — sudah dipotong dari PnL\n`
+    : '';
   await send(
     `${emoji} <b>Deal Ditutup</b> — ${closed.symbol}\n` +
     `📌 ${labels[closed.reason] || closed.reason}\n` +
     `Avg entry: ${closed.avgPrice.toFixed(6)} → Exit: ${closed.exitPrice.toFixed(6)}\n` +
     `PnL: ${sign}${closed.pnlPct.toFixed(2)}% (${sign}${closed.pnlUsdt.toFixed(2)} USDT)\n` +
+    feeLine +
     `Safety order terpakai: ${closed.safetyOrdersFilled}`
   );
 }
@@ -104,6 +141,38 @@ export async function notifyTrendChange(symbol, prevStatus, newStatus, price, ti
   );
 }
 
+// ── Entry Filter (AKTIF memblokir entry baru — beda dari Trend Monitor) ────
+export async function notifyEntryPending(symbol, filter) {
+  await send(
+    `⏸ <b>Entry Ditunda</b> — ${symbol}\n` +
+    `Harga ${filter.price} masih di bawah EMA${filter.period} (${filter.ema.toFixed(6)}) @ ${filter.timeframe.toUpperCase()}.\n` +
+    `Bot akan otomatis buka deal begitu harga naik ke atas EMA.\n` +
+    `<i>Ketik /cancelentry ${symbol} kalau mau batalkan.</i>`
+  );
+}
+
+export async function notifyEntryCancelled(symbol) {
+  await send(`🚫 <b>Entry Dibatalkan</b> — ${symbol}\nPending entry dihapus, tidak akan dibuka otomatis.`);
+}
+
+// ── Limit Order Entry (base order dipasang sbg limit, nunggu fill) ─────────
+export async function notifyLimitOrderPlaced(symbol, price, qty) {
+  await send(
+    `📝 <b>Limit Order Ditempatkan</b> — ${symbol}\n` +
+    `Beli ${qty} @ ${price}\n` +
+    `Menunggu order terisi (fill)...\n` +
+    `<i>Ketik /cancellimit ${symbol} kalau mau batalkan.</i>`
+  );
+}
+
+export async function notifyLimitOrderCancelled(symbol, price, reason) {
+  await send(
+    `🚫 <b>Limit Order Dibatalkan</b> — ${symbol}\n` +
+    `Order beli @ ${price} dibatalkan.\n` +
+    `Alasan: ${reason}`
+  );
+}
+
 // ── Compounding ──────────────────────────────────────────────────────────
 export async function notifyCompoundingAvailable(pool, threshold) {
   await send(
@@ -121,5 +190,62 @@ export async function notifyCompoundingApplied(result) {
     `Base Order: ${result.oldBase} → <b>${result.newBase}</b> USDT\n` +
     `Safety Order: ${result.oldSO} → <b>${result.newSO}</b> USDT\n` +
     `<i>Berlaku utk deal baru berikutnya.</i>`
+  );
+}
+
+// ── Manual Position (DILUAR DCA) — entry manual + trailing stop ────────────
+export async function notifyPositionEntry(position) {
+  const isFirst = position.entries.length === 1;
+  const lastEntry = position.entries[position.entries.length - 1];
+  await send(
+    `${isFirst ? '🚀 <b>Position Dibuka</b>' : '➕ <b>Entry Tambahan</b>'} — ${position.symbol}\n` +
+    `Entry ini: ${lastEntry.qty} @ ${lastEntry.price} (${lastEntry.budget} USDT)\n` +
+    `Avg price: ${position.avgPrice.toFixed(6)} | Total qty: ${position.totalQty}\n` +
+    `SL: ${position.slPrice?.toFixed(6) ?? '—'} (${position.stopLossPercent}%)\n` +
+    `Trailing aktif di atas: ${(position.avgPrice * (1 + position.trailingActivationPercent / 100)).toFixed(6)} (+${position.trailingActivationPercent}%), trail ${position.trailingStopPercent}%` +
+    (isFirst ? '' : '\n<i>⚠️ Status trailing di-reset karena avg price berubah — akan mulai lagi dari nol berdasarkan avg price baru.</i>')
+  );
+}
+
+export async function notifyPositionTrailingActivated(position) {
+  await send(
+    `🔔 <b>Trailing Stop Aktif</b> — ${position.symbol}\n` +
+    `Peak: ${position.peakPrice.toFixed(6)}\n` +
+    `Trailing stop sekarang di: ${position.trailingStopPrice.toFixed(6)} (-${position.trailingStopPercent}% dari peak)\n` +
+    `<i>Trailing stop akan naik terus mengikuti harga tertinggi baru.</i>`
+  );
+}
+
+export async function notifyPositionClosed(closed) {
+  const emoji = closed.pnlPct >= 0 ? '🟢' : '🔴';
+  const sign  = closed.pnlPct >= 0 ? '+' : '';
+  const labels = { stop_loss: '🛑 Stop Loss', trailing_stop: '📉 Trailing Stop', manual_close: '🖐 Manual Close' };
+  const feeLine = closed.totalFeeUsdt
+    ? `Fee: ${closed.totalFeeUsdt.toFixed(4)} USDT — sudah dipotong dari PnL\n`
+    : '';
+  await send(
+    `${emoji} <b>Position Ditutup</b> — ${closed.symbol}\n` +
+    `📌 ${labels[closed.reason] || closed.reason}\n` +
+    `Avg entry: ${closed.avgPrice.toFixed(6)} → Exit: ${closed.exitPrice.toFixed(6)}\n` +
+    `PnL: ${sign}${closed.pnlPct.toFixed(2)}% (${sign}${closed.pnlUsdt.toFixed(2)} USDT)\n` +
+    feeLine +
+    `Jumlah entry: ${closed.entries.length}`
+  );
+}
+
+/**
+ * Jual sebagian Manual Position — sisa qty (kalau ada) TETAP AKTIF dengan
+ * avgPrice/SL/trailing yang SAMA (tidak berubah).
+ */
+export async function notifyPositionPartialSold(closedSlice, remainingPosition, fullyClosed) {
+  const emoji = closedSlice.pnlPct >= 0 ? '🟢' : '🔴';
+  const sign  = closedSlice.pnlPct >= 0 ? '+' : '';
+  await send(
+    `${emoji} <b>✂️ Partial Sell (${closedSlice.partialPercent}%)</b> — ${closedSlice.symbol}\n` +
+    `Terjual: ${closedSlice.totalQty} @ ${closedSlice.exitPrice}\n` +
+    `PnL bagian ini: ${sign}${closedSlice.pnlPct.toFixed(2)}% (${sign}${closedSlice.pnlUsdt.toFixed(2)} USDT)\n` +
+    (fullyClosed
+      ? `<i>Posisi HABIS terjual seluruhnya — tidak ada sisa yang aktif.</i>`
+      : `Sisa posisi TETAP AKTIF: qty=${remainingPosition.totalQty} @ avg ${remainingPosition.avgPrice.toFixed(6)}\n<i>Avg price/SL/trailing tidak berubah.</i>`)
   );
 }

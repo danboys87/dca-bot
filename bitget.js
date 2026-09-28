@@ -71,7 +71,7 @@ export async function getAssetBalance(coin) {
   return Array.isArray(assets) ? (assets.find(a => a.coin === coin) || null) : null;
 }
 
-export async function placeOrder({ symbol, side, orderType, size }) {
+export async function placeOrder({ symbol, side, orderType, size, price }) {
   const body = {
     symbol,
     side,
@@ -80,11 +80,19 @@ export async function placeOrder({ symbol, side, orderType, size }) {
     size:      String(size),
     clientOid: `dca_${Date.now()}`,
   };
+  // Limit order butuh price eksplisit — market order tidak.
+  if (orderType === 'limit' && price !== undefined) {
+    body.price = String(price);
+  }
   return request('POST', '/api/v2/spot/trade/place-order', {}, body);
 }
 
 export async function getOrder(orderId, symbol) {
   return request('GET', '/api/v2/spot/trade/orderInfo', { orderId, symbol });
+}
+
+export async function cancelOrder(orderId, symbol) {
+  return request('POST', '/api/v2/spot/trade/cancel-order', {}, { orderId, symbol });
 }
 
 export async function getCurrentPrice(symbol) {
@@ -102,6 +110,43 @@ export async function getCandles(symbol, granularity = '4h', limit = 250) {
   return request('GET', '/api/v2/spot/market/candles', { symbol, granularity, limit }, null, false);
 }
 
+const _symbolInfoCache = new Map();
+
+/**
+ * Ambil spesifikasi trading (precision harga/qty/quote, minimum trade) utk 1
+ * symbol dari Bitget — SUMBER KEBENARAN ASLI, beda-beda tiap pair (bukan
+ * ditebak/hardcode). Di-cache in-memory per proses (nilainya jarang berubah
+ * selama bot jalan) supaya tidak fetch berulang tiap mau order.
+ */
+export async function getSymbolInfo(symbol) {
+  if (_symbolInfoCache.has(symbol)) return _symbolInfoCache.get(symbol);
+
+  const data = await request('GET', '/api/v2/spot/public/symbols', { symbol }, null, false);
+  const info = Array.isArray(data) ? data[0] : data;
+  if (!info) throw new Error(`Info symbol ${symbol} tidak ditemukan di Bitget`);
+
+  const parsed = {
+    symbol,
+    pricePrecision:    parseInt(info.pricePrecision, 10),
+    quantityPrecision: parseInt(info.quantityPrecision, 10),
+    quotePrecision:    parseInt(info.quotePrecision, 10),
+    minTradeUSDT:      parseFloat(info.minTradeUSDT || '0'),
+    minTradeAmount:    parseFloat(info.minTradeAmount || '0'),
+  };
+  _symbolInfoCache.set(symbol, parsed);
+  return parsed;
+}
+
+/**
+ * Bulatkan KE BAWAH ke sejumlah desimal tertentu — dipakai supaya nilai yang
+ * dikirim ke Bitget tidak pernah melebihi saldo/qty asli yang tersedia
+ * (floor, bukan round, biar tidak "over-spend" akibat pembulatan ke atas).
+ */
+export function roundDownToPrecision(value, precision) {
+  const multiplier = Math.pow(10, precision);
+  return Math.floor(value * multiplier) / multiplier;
+}
+
 export async function testConnection() {
   try {
     const assets = await getAccountAssets();
@@ -109,4 +154,48 @@ export async function testConnection() {
   } catch (err) {
     return { ok: false, error: err.message };
   }
+}
+
+/**
+ * Konversi field `feeDetail` dari response order Bitget (getOrder) jadi estimasi
+ * fee dalam USDT (atau quoteAsset lain kalau bukan USDT). Formatnya JSON-encoded
+ * STRING per koin, contoh:
+ *   {"USDT":{"totalFee":"-0.0182",...},"newFees":{...}}
+ * "newFees" SENGAJA diabaikan — itu struktur summary internal Bitget, bukan
+ * breakdown fee per-koin yang sebenarnya.
+ *
+ * - Fee dibayar dalam quoteAsset (USDT) → dipakai langsung.
+ * - Fee dibayar dalam baseAsset (koin yang dibeli/dijual) → dikonversi pakai
+ *   fillPrice order yang bersangkutan.
+ * - Fee dibayar dalam koin lain (mis. BGB kalau fitur BGB deduction aktif di
+ *   akun) → TIDAK dikonversi (skip), karena butuh harga BGB/USDT terpisah —
+ *   lebih baik under-count daripada salah hitung. Matikan BGB deduction di
+ *   akun Bitget kalau mau akurasi fee 100% dari bot ini.
+ */
+export function extractFeeUsdt(orderDetail, { quoteAsset = 'USDT', baseAsset = null, fillPrice = null } = {}) {
+  if (!orderDetail?.feeDetail) return 0;
+
+  let parsed;
+  try {
+    parsed = typeof orderDetail.feeDetail === 'string' ? JSON.parse(orderDetail.feeDetail) : orderDetail.feeDetail;
+  } catch {
+    return 0;
+  }
+
+  let totalUsdt = 0;
+  for (const [coin, info] of Object.entries(parsed || {})) {
+    if (coin === 'newFees') continue; // struktur summary internal Bitget, bukan fee per-koin nyata
+    const raw = info?.totalFee;
+    if (raw === undefined || raw === null) continue;
+    const feeAmt = Math.abs(parseFloat(raw));
+    if (!feeAmt) continue;
+
+    if (coin === quoteAsset) {
+      totalUsdt += feeAmt;
+    } else if (baseAsset && coin === baseAsset && fillPrice) {
+      totalUsdt += feeAmt * fillPrice;
+    }
+    // fee dalam koin lain (BGB dll) sengaja dilewati — lihat komentar di atas.
+  }
+  return totalUsdt;
 }

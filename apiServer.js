@@ -7,7 +7,7 @@ import path   from 'path';
 import { fileURLToPath } from 'url';
 import { log }             from './logger.js';
 import { getCurrentPrice } from './bitget.js';
-import { getStats, getActiveDeals, getClosedDeals, getTrendStatus } from './state.js';
+import { getStats, getActiveDeals, getClosedDeals, getTrendStatus, getPendingEntries, getPendingLimitEntries, getActivePositions, getClosedPositions } from './state.js';
 import { config, saveConfig } from './config.js';
 import { analyzeTrend } from './trendMonitor.js';
 
@@ -87,18 +87,48 @@ async function handle(req, res) {
   if (route === '/api/status' && method === 'GET') {
     const stats = getStats();
     const deals = getActiveDeals();
+    const feePct = config.trading.takerFeePercent ?? 0.1; // dipakai utk estimasi fee jual (belum tereksekusi, jadi belum pasti)
     const enriched = {};
     for (const [sym, d] of Object.entries(deals)) {
       const price = await getCurrentPrice(sym).catch(() => null);
-      const pnlPct  = price ? ((price - d.avgPrice) / d.avgPrice * 100) : null;
-      const pnlUsdt = price ? ((price - d.avgPrice) * d.totalQty) : null;
-      enriched[sym] = { ...d, currentPrice: price, pnlPct, pnlUsdt, trendStatus: getTrendStatus(sym) };
+      const buyFeeUsdt = d.buyFeeUsdt || 0;
+      let pnlPct = null, pnlUsdt = null, grossPnlUsdt = null, estSellFeeUsdt = null;
+      if (price) {
+        grossPnlUsdt   = (price - d.avgPrice) * d.totalQty;
+        estSellFeeUsdt = (price * d.totalQty) * (feePct / 100); // ESTIMASI — fee jual pasti baru diketahui setelah order tereksekusi
+        pnlUsdt        = grossPnlUsdt - buyFeeUsdt - estSellFeeUsdt;
+        pnlPct          = d.totalSpent > 0 ? (pnlUsdt / d.totalSpent) * 100 : 0;
+      }
+      enriched[sym] = {
+        ...d, currentPrice: price, pnlPct, pnlUsdt, grossPnlUsdt, buyFeeUsdt, estSellFeeUsdt,
+        trendStatus: getTrendStatus(sym),
+      };
     }
+
+    // Manual Position (DILUAR DCA) — enrichment PnL live sama pola dgn deal DCA di atas.
+    const positions = getActivePositions();
+    const enrichedPositions = {};
+    for (const [sym, p] of Object.entries(positions)) {
+      const price = await getCurrentPrice(sym).catch(() => null);
+      const buyFeeUsdt = p.buyFeeUsdt || 0;
+      let pnlPct = null, pnlUsdt = null, grossPnlUsdt = null, estSellFeeUsdt = null;
+      if (price) {
+        grossPnlUsdt   = (price - p.avgPrice) * p.totalQty;
+        estSellFeeUsdt = (price * p.totalQty) * (feePct / 100);
+        pnlUsdt        = grossPnlUsdt - buyFeeUsdt - estSellFeeUsdt;
+        pnlPct         = p.totalSpent > 0 ? (pnlUsdt / p.totalSpent) * 100 : 0;
+      }
+      enrichedPositions[sym] = { ...p, currentPrice: price, pnlPct, pnlUsdt, grossPnlUsdt, buyFeeUsdt, estSellFeeUsdt };
+    }
+
     json(res, {
       ok: true,
       stats,
       deals: enriched,
-      config: { dca: config.dca, trading: config.trading, isDryRun: process.env.DRY_RUN === 'true' },
+      positions: enrichedPositions,
+      pendingEntries: getPendingEntries(),
+      pendingLimitEntries: getPendingLimitEntries(),
+      config: { dca: config.dca, trading: config.trading, position: config.position, isDryRun: process.env.DRY_RUN === 'true' },
       serverTime: new Date().toISOString(),
     });
     return;
@@ -163,9 +193,50 @@ async function handle(req, res) {
   }
 
   if (route === '/api/start' && method === 'POST') {
+    const { symbol, price } = await readBody(req);
+    if (!symbol) { err(res, 'symbol required'); return; }
+    const parsedPrice = (price !== undefined && price !== null && price !== '') ? parseFloat(price) : null;
+    if (parsedPrice !== null && (!(parsedPrice > 0))) { err(res, 'price tidak valid'); return; }
+    try { json(res, await _callbacks.startDeal(symbol.toUpperCase(), parsedPrice)); }
+    catch (e) { err(res, e.message); }
+    return;
+  }
+
+  // Entry manual tambahan ke deal DCA yang SUDAH AKTIF — budget bebas, market
+  // buy sekarang juga, di luar kuota Safety Order.
+  if (route === '/api/deal/add-entry' && method === 'POST') {
+    const { symbol, budget } = await readBody(req);
+    if (!symbol) { err(res, 'symbol required'); return; }
+    const parsedBudget = parseFloat(budget);
+    if (!(parsedBudget > 0)) { err(res, 'budget tidak valid'); return; }
+    try { json(res, await _callbacks.addManualDealEntry(symbol.toUpperCase(), parsedBudget)); }
+    catch (e) { err(res, e.message); }
+    return;
+  }
+
+  // Pindahkan deal DCA aktif ke Manual Position — TIDAK ADA transaksi ke Bitget.
+  if (route === '/api/deal/migrate-to-position' && method === 'POST') {
     const { symbol } = await readBody(req);
     if (!symbol) { err(res, 'symbol required'); return; }
-    try { json(res, await _callbacks.startDeal(symbol.toUpperCase())); }
+    try { json(res, await _callbacks.migrateDeal(symbol.toUpperCase())); }
+    catch (e) { err(res, e.message); }
+    return;
+  }
+
+  // Batalkan entry yang lagi pending (nunggu syarat Entry Filter).
+  if (route === '/api/cancel-entry' && method === 'POST') {
+    const { symbol } = await readBody(req);
+    if (!symbol) { err(res, 'symbol required'); return; }
+    try { json(res, _callbacks.cancelPendingEntry(symbol.toUpperCase())); }
+    catch (e) { err(res, e.message); }
+    return;
+  }
+
+  // Batalkan limit order yang lagi nunggu fill (base order belum kefill).
+  if (route === '/api/cancel-limit' && method === 'POST') {
+    const { symbol } = await readBody(req);
+    if (!symbol) { err(res, 'symbol required'); return; }
+    try { json(res, await _callbacks.cancelPendingLimitEntry(symbol.toUpperCase())); }
     catch (e) { err(res, e.message); }
     return;
   }
@@ -203,6 +274,61 @@ async function handle(req, res) {
     if (!symbol) { err(res, 'symbol required'); return; }
     try { json(res, _callbacks.resumeTP(symbol.toUpperCase())); }
     catch (e) { err(res, e.message); }
+    return;
+  }
+
+  // ── Manual Position (DILUAR DCA) ────────────────────────────────────────
+  if (route === '/api/position/add' && method === 'POST') {
+    const { symbol, budget } = await readBody(req);
+    if (!symbol) { err(res, 'symbol required'); return; }
+    const parsedBudget = parseFloat(budget);
+    if (!(parsedBudget > 0)) { err(res, 'budget tidak valid'); return; }
+    try { json(res, await _callbacks.addPosition(symbol.toUpperCase(), parsedBudget)); }
+    catch (e) { err(res, e.message); }
+    return;
+  }
+
+  if (route === '/api/position/close' && method === 'POST') {
+    const { symbol } = await readBody(req);
+    if (!symbol) { err(res, 'symbol required'); return; }
+    try { json(res, await _callbacks.closePositionManual(symbol.toUpperCase())); }
+    catch (e) { err(res, e.message); }
+    return;
+  }
+
+  // Jual sebagian Manual Position — sisa qty tetap aktif dgn avg/SL/trailing sama.
+  if (route === '/api/position/partial-close' && method === 'POST') {
+    const { symbol, percent } = await readBody(req);
+    if (!symbol) { err(res, 'symbol required'); return; }
+    const parsedPercent = parseFloat(percent);
+    if (!(parsedPercent > 0) || parsedPercent > 100) { err(res, 'percent tidak valid (harus 1-100)'); return; }
+    try { json(res, await _callbacks.closePositionPartialManual(symbol.toUpperCase(), parsedPercent)); }
+    catch (e) { err(res, e.message); }
+    return;
+  }
+
+  // Hold/Resume Trailing — tahan/aktifkan lagi EKSEKUSI JUAL dari trailing stop
+  // (buat holding jangka panjang), SL tetap jalan normal selama hold aktif.
+  if (route === '/api/position/hold' && method === 'POST') {
+    const { symbol } = await readBody(req);
+    if (!symbol) { err(res, 'symbol required'); return; }
+    try { json(res, _callbacks.holdPositionTrailing(symbol.toUpperCase())); }
+    catch (e) { err(res, e.message); }
+    return;
+  }
+
+  if (route === '/api/position/resume' && method === 'POST') {
+    const { symbol } = await readBody(req);
+    if (!symbol) { err(res, 'symbol required'); return; }
+    try { json(res, _callbacks.resumePositionTrailing(symbol.toUpperCase())); }
+    catch (e) { err(res, e.message); }
+    return;
+  }
+
+  if (route === '/api/position/history' && method === 'GET') {
+    const requested = parseInt(url.searchParams.get('limit') || '200');
+    const limit = Math.min(Math.max(requested || 200, 1), 2000);
+    json(res, { ok: true, positions: getClosedPositions(limit) });
     return;
   }
 
