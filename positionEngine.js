@@ -36,6 +36,18 @@ export function calcSlPrice(avgPrice, stopLossPercent) {
   return avgPrice * (1 - stopLossPercent / 100);
 }
 
+/**
+ * Tentukan slPrice sebuah posisi: override MANUAL (harga tetap / dimatikan) kalau
+ * ada, kalau tidak pakai persen dari avgPrice. Override manual TIDAK ikut
+ * bergeser saat avgPrice berubah (entry tambahan) — harga yang kamu set tetap.
+ */
+export function resolveSlPrice(position) {
+  const o = position.slOverride;
+  if (o?.type === 'price' && o.price > 0) return o.price;
+  if (o?.type === 'off') return null;
+  return calcSlPrice(position.avgPrice, position.stopLossPercent);
+}
+
 export function calcTrailingActivationPrice(avgPrice, trailingActivationPercent) {
   return avgPrice * (1 + trailingActivationPercent / 100);
 }
@@ -56,7 +68,7 @@ export function recalcPosition(position) {
   position.totalQty   = totalQty;
   position.totalSpent = totalSpent;
   position.avgPrice   = totalQty > 0 ? totalSpent / totalQty : null;
-  position.slPrice    = calcSlPrice(position.avgPrice, position.stopLossPercent);
+  position.slPrice    = resolveSlPrice(position);
 
   // PENTING: entry TAMBAHAN (bukan entry pertama) mengubah avgPrice — peak &
   // trailingStopPrice yang lama jadi TIDAK RELEVAN lagi terhadap avgPrice baru

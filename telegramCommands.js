@@ -340,6 +340,28 @@ async function handleCommand(chatId, text, callbacks) {
       break;
     }
 
+    case '/importposition': {
+      if (!arg || !parts[2] || !parts[3]) { await reply(chatId, '❓ Format: /importposition SYMBOL TOTAL_USDT AVG_ENTRY\nContoh: /importposition INJUSDT 177.88 7.976502\n\nCatat posisi yg SUDAH kamu pegang ke Manual Position — TANPA transaksi ke Bitget.'); break; }
+      try {
+        const res = await callbacks.importPositions([{ symbol: arg, totalUsdt: parts[2], avgPrice: parts[3] }]);
+        const r = res.results[0];
+        await reply(chatId, r.ok ? `✅ ${arg} di-import. qty=${r.qty} avg=${r.avgPrice}` : `❌ ${r.error}`);
+      } catch (e) { await reply(chatId, `❌ Error: ${e.message}`); }
+      break;
+    }
+
+    case '/setsl': {
+      if (!arg || !parts[2]) { await reply(chatId, '❓ Format: /setsl SYMBOL HARGA\nContoh: /setsl INJUSDT 6.5\n/setsl INJUSDT off  → matikan SL\n/setsl INJUSDT reset → balik ke persen dari Config\n\nHarga SL harus DI BAWAH harga sekarang.'); break; }
+      const m = parts[2].toLowerCase();
+      try {
+        const res = (m === 'off' || m === 'reset')
+          ? await callbacks.setPositionStopLoss(arg, m)
+          : await callbacks.setPositionStopLoss(arg, 'price', parseFloat(parts[2]));
+        await reply(chatId, res.ok ? `✅ SL ${arg} sekarang: ${res.position.slPrice ?? 'off'}` : `❌ ${res.error}`);
+      } catch (e) { await reply(chatId, `❌ Error: ${e.message}`); }
+      break;
+    }
+
     case '/holdposition': {
       if (!arg) { await reply(chatId, '❓ Format: /holdposition SYMBOL\nTahan sementara eksekusi jual dari Trailing Stop — buat holding jangka panjang. Peak tetap di-track, Stop Loss tetap jalan normal. Pakai /resumeposition SYMBOL utk aktifkan lagi.'); break; }
       try {

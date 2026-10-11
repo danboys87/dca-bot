@@ -309,6 +309,24 @@ async function handle(req, res) {
 
   // Hold/Resume Trailing — tahan/aktifkan lagi EKSEKUSI JUAL dari trailing stop
   // (buat holding jangka panjang), SL tetap jalan normal selama hold aktif.
+  // Import posisi yang sudah dipegang di exchange ke Manual Position — TANPA transaksi ke Bitget.
+  if (route === '/api/position/import' && method === 'POST') {
+    const { positions } = await readBody(req);
+    if (!Array.isArray(positions) || !positions.length) { err(res, 'positions (array) required'); return; }
+    try { json(res, await _callbacks.importPositions(positions)); }
+    catch (e) { err(res, e.message); }
+    return;
+  }
+
+  // Atur Stop Loss posisi yang sedang berjalan (harga tetap / off / reset ke persen config).
+  if (route === '/api/position/set-sl' && method === 'POST') {
+    const { symbol, mode, price } = await readBody(req);
+    if (!symbol) { err(res, 'symbol required'); return; }
+    try { json(res, await _callbacks.setPositionStopLoss(symbol.toUpperCase(), mode, parseFloat(price))); }
+    catch (e) { err(res, e.message); }
+    return;
+  }
+
   if (route === '/api/position/hold' && method === 'POST') {
     const { symbol } = await readBody(req);
     if (!symbol) { err(res, 'symbol required'); return; }

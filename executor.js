@@ -6,10 +6,10 @@ import { log, logTrade } from './logger.js';
 import {
   startDeal, addSafetyOrderFill, addManualDealEntry, updateDealCalc, closeDeal, getDeal,
   hasActivePosition, startPosition, addPositionEntry, updatePositionCalc, closePosition, getPosition,
-  migrateDealToPosition, partialClosePosition,
+  migrateDealToPosition, partialClosePosition, importPosition,
 } from './state.js';
 import { recalcDeal } from './dcaEngine.js';
-import { recalcPosition } from './positionEngine.js';
+import { recalcPosition, resolveSlPrice } from './positionEngine.js';
 import { config } from './config.js';
 
 const isDryRun = process.env.DRY_RUN === 'true';
@@ -357,4 +357,51 @@ export async function closePositionPartial(symbol, percent) {
 
   logTrade({ side: 'sell', symbol, qty, price, tag: `position_partial_${percent}pct` });
   return partialClosePosition(symbol, { soldQty: qty, exitPrice: price, sellFeeUsdt: feeUsdt });
+}
+
+/**
+ * Import posisi yang sudah dipegang di exchange ke Manual Position — TANPA
+ * transaksi ke Bitget. qty dihitung dari totalUsdt / avgPrice (atau qty
+ * eksplisit), dibulatkan KE BAWAH sesuai quantityPrecision symbol. Dibulatkan
+ * ke bawah/sedikit lebih besar dari saldo asli aman: saat jual, bot selalu
+ * pakai min(qty tercatat, saldo asli di Bitget).
+ */
+export async function importManualPosition(symbol, { avgPrice, totalUsdt, qty }) {
+  if (hasActivePosition(symbol)) throw new Error(`${symbol} sudah punya Manual Position aktif`);
+  if (!(avgPrice > 0)) throw new Error(`Avg price tidak valid: ${avgPrice}`);
+  const rawQty = qty > 0 ? qty : (totalUsdt > 0 ? totalUsdt / avgPrice : 0);
+  if (!(rawQty > 0)) throw new Error('Isi total USDT atau qty');
+
+  const info = await getSymbolInfo(symbol); // sekalian validasi symbol memang ada di Bitget
+  const finalQty = roundDownToPrecision(rawQty, info.quantityPrecision);
+  if (!(finalQty > 0)) throw new Error(`Qty terlalu kecil utk presisi ${symbol}`);
+
+  const pc = config.position || {};
+  const position = importPosition(symbol, {
+    qty: finalQty, avgPrice,
+    stopLossPercent:           pc.stopLossPercent ?? 10,
+    trailingActivationPercent: pc.trailingActivationPercent ?? 3,
+    trailingStopPercent:       pc.trailingStopPercent ?? 2,
+  });
+  if (!position) throw new Error(`${symbol} sudah punya Manual Position aktif`);
+  recalcPosition(position);
+  updatePositionCalc(symbol, position);
+  log('executor', `📥 Import ${symbol}: qty=${finalQty} avg=${avgPrice} | SL=${position.slPrice?.toFixed(6) ?? '—'}`);
+  return position;
+}
+
+/**
+ * Atur Stop Loss per posisi yang SEDANG berjalan. override: {type:'price', price}
+ * = harga SL tetap, {type:'off'} = SL dimatikan, null = balik ke persen dari Config.
+ * SENGAJA tidak memanggil recalcPosition() — itu me-reset status trailing utk
+ * posisi dgn >1 entry. Cukup hitung ulang slPrice saja.
+ */
+export function applyPositionSlOverride(symbol, override) {
+  const position = getPosition(symbol);
+  if (!position) throw new Error(`Position ${symbol} tidak ditemukan`);
+  if (override) position.slOverride = override; else delete position.slOverride;
+  position.slPrice = resolveSlPrice(position);
+  updatePositionCalc(symbol, position);
+  log('executor', `🛑 SL ${symbol} diatur: ${override ? override.type + (override.price ? ' @ ' + override.price : '') : 'reset ke persen config'} → slPrice=${position.slPrice ?? '—'}`);
+  return position;
 }

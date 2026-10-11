@@ -349,6 +349,43 @@ export function migrateDealToPosition(symbol, { stopLossPercent, trailingActivat
  * trailingStopPercent "dikunci" saat posisi dibuka (dari config.position saat itu) —
  * ganti config setelahnya TIDAK mempengaruhi posisi yang sudah berjalan.
  */
+/**
+ * Import posisi yang SUDAH dipegang di exchange ke Manual Position — TANPA
+ * transaksi apapun ke Bitget (murni pencatatan). Dipakai kalau state hilang
+ * (mis. pindah akun/server) tapi koinnya masih ada di wallet. Riwayat entry
+ * asli tidak bisa dipulihkan, jadi dicatat sebagai 1 entry gabungan di avgPrice.
+ * Return null kalau symbol itu sudah punya Manual Position aktif.
+ */
+export function importPosition(symbol, { qty, avgPrice, stopLossPercent, trailingActivationPercent, trailingStopPercent }) {
+  if (_state.positions[symbol]) return null;
+  const now = new Date().toISOString();
+  const position = {
+    symbol,
+    status: 'active',
+    totalQty: qty,
+    totalSpent: qty * avgPrice,
+    avgPrice,
+    buyFeeUsdt: 0, // fee beli asli tidak diketahui — PnL net fee jadi sedikit lebih optimis utk posisi hasil import
+    stopLossPercent,
+    slPrice: null, // dihitung lewat recalcPosition() di executor.js
+    trailingActivationPercent,
+    trailingStopPercent,
+    trailingActive: false,
+    trailingHold: false,
+    peakPrice: null,
+    trailingStopPrice: null,
+    openedAt: now,
+    imported: true,
+    entries: [
+      { tag: 'imported', qty, price: avgPrice, budget: qty * avgPrice, orderId: 'imported', fee: 0, filledAt: now },
+    ],
+  };
+  _state.positions[symbol] = position;
+  saveLocal(_state);
+  log('state', `📥 Position di-import: ${symbol} qty=${qty} avg=${avgPrice} (tanpa transaksi ke Bitget)`);
+  return position;
+}
+
 export function startPosition(symbol, { qty, price, budget, orderId, feeUsdt = 0, stopLossPercent, trailingActivationPercent, trailingStopPercent }) {
   const position = {
     symbol,

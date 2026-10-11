@@ -24,7 +24,7 @@ import { evaluatePosition, calcTrailingStopPrice } from './positionEngine.js';
 import {
   openDeal, openDealLimit, checkLimitOrderFilled, cancelPendingLimitOrder, finalizeBaseOrder,
   fillSafetyOrder, closeDealMarket, openOrAddPosition, closePositionMarket, addManualEntryToDeal,
-  migrateDealToManualPosition, closePositionPartial,
+  migrateDealToManualPosition, closePositionPartial, importManualPosition, applyPositionSlOverride,
 } from './executor.js';
 import {
   notifyDealOpened, notifySafetyOrder, notifyDealClosed, notifyDealUntracked, notifyError, notifyStartup,
@@ -501,6 +501,57 @@ export async function closePositionPartialManual(symbol, percent) {
   }
 }
 
+/**
+ * Import banyak posisi sekaligus (items: [{symbol, avgPrice, totalUsdt?, qty?}]).
+ * TANPA transaksi ke Bitget. Tiap item diproses terpisah — yang gagal (mis.
+ * sudah ada / symbol salah) dilaporkan, yang lain tetap masuk.
+ */
+export async function importPositions(items) {
+  const results = [];
+  for (const it of (items || [])) {
+    const symbol = String(it.symbol || '').toUpperCase();
+    try {
+      const position = await importManualPosition(symbol, {
+        avgPrice: parseFloat(it.avgPrice), totalUsdt: parseFloat(it.totalUsdt), qty: parseFloat(it.qty),
+      });
+      results.push({ symbol, ok: true, qty: position.totalQty, avgPrice: position.avgPrice, slPrice: position.slPrice });
+    } catch (e) {
+      results.push({ symbol, ok: false, error: e.message });
+    }
+  }
+  return { ok: results.some(r => r.ok), results };
+}
+
+/**
+ * Atur Stop Loss posisi yang sedang berjalan. mode: 'price' (harga tetap),
+ * 'off' (matikan SL), 'reset' (balik ke persen dari Config). Harga SL ditolak
+ * kalau >= harga sekarang — kalau tidak, posisi langsung terjual di loop berikutnya.
+ */
+export async function setPositionStopLoss(symbol, mode, price = null) {
+  if (!hasActivePosition(symbol)) return { ok: false, error: `Position ${symbol} tidak aktif` };
+  try {
+    let override;
+    if (mode === 'price') {
+      if (!(price > 0)) return { ok: false, error: `Harga SL tidak valid: ${price}` };
+      const cur = await getCurrentPrice(symbol);
+      if (!cur) return { ok: false, error: `Tidak bisa ambil harga ${symbol} utk validasi` };
+      if (price >= cur) return { ok: false, error: `Harga SL (${price}) harus di BAWAH harga sekarang (${cur}) — kalau tidak, posisi langsung terjual di loop berikutnya` };
+      override = { type: 'price', price };
+    } else if (mode === 'off') {
+      override = { type: 'off' };
+    } else if (mode === 'reset') {
+      override = null;
+    } else {
+      return { ok: false, error: `Mode tidak dikenal: ${mode}` };
+    }
+    const position = applyPositionSlOverride(symbol, override);
+    return { ok: true, position };
+  } catch (e) {
+    log('executor_error', `Gagal atur SL ${symbol}: ${e.message}`);
+    return { ok: false, error: e.message };
+  }
+}
+
 export function positionStats() {
   return getPositionStats();
 }
@@ -850,6 +901,20 @@ function startREPL() {
       case 'resumeposition':
         if (!arg) { console.log('Format: resumeposition SYMBOL  (aktifkan lagi eksekusi jual Trailing Stop)'); break; }
         console.log(resumePositionTrailing(arg.toUpperCase())); break;
+      case 'importposition': {
+        const [, sym, total, avg] = line.trim().split(/\s+/);
+        if (!sym || !total || !avg) { console.log('Format: importposition SYMBOL TOTAL_USDT AVG_ENTRY  (catat posisi yg sudah dipegang, TANPA transaksi ke Bitget)'); break; }
+        console.log(await importPositions([{ symbol: sym, totalUsdt: total, avgPrice: avg }]));
+        break;
+      }
+      case 'setsl': {
+        if (!arg || !arg2) { console.log('Format: setsl SYMBOL HARGA | off | reset  (SL posisi yg sedang berjalan)'); break; }
+        const m = arg2.toLowerCase();
+        console.log(m === 'off' || m === 'reset'
+          ? await setPositionStopLoss(arg.toUpperCase(), m)
+          : await setPositionStopLoss(arg.toUpperCase(), 'price', parseFloat(arg2)));
+        break;
+      }
       case 'positions':
         console.log(getActivePositions()); break;
       case 'stop': stopLoop(); stopTrendLoop(); stopTelegramPolling(); process.exit(0); break;
@@ -902,14 +967,14 @@ async function main() {
     startDeal, closeDealManual, closeDealUntrack, holdTP, resumeTP,
     compoundNow, compoundStatus, cancelPendingEntry, cancelPendingLimitEntry,
     addPosition, closePositionManual, positionStats, addManualDealEntry, migrateDeal,
-    closePositionPartialManual, holdPositionTrailing, resumePositionTrailing,
+    closePositionPartialManual, holdPositionTrailing, resumePositionTrailing, importPositions, setPositionStopLoss,
   });
 
   startApiServer({
     startDeal, closeDealManual, closeDealUntrack, holdTP, resumeTP,
     compoundNow, compoundStatus, cancelPendingEntry, cancelPendingLimitEntry,
     addPosition, closePositionManual, positionStats, addManualDealEntry, migrateDeal,
-    closePositionPartialManual, holdPositionTrailing, resumePositionTrailing,
+    closePositionPartialManual, holdPositionTrailing, resumePositionTrailing, importPositions, setPositionStopLoss,
   });
 
   if (process.stdin.isTTY) startREPL();

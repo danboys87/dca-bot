@@ -200,7 +200,13 @@ tr.day-detail th{background:var(--surface)}
       <input id="posSymbol" placeholder="BTCUSDT" style="width:110px;text-transform:uppercase">
       <input id="posBudget" type="number" step="any" placeholder="Budget USDT" style="width:110px">
       <button class="btn success" onclick="doAddPosition()" title="Entry pertama buka posisi baru; kalau sudah ada posisi di symbol ini, jadi entry tambahan">+ Entry</button>
+      <button class="btn ghost" onclick="toggleImportBox()" title="Catat posisi yang SUDAH kamu pegang (mis. setelah pindah server) — TANPA transaksi ke Bitget">📥 Import</button>
     </span>
+  </div>
+  <div id="import-box" style="display:none;padding:14px;border-bottom:1px solid var(--border)">
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Satu posisi per baris: <b>SYMBOL TOTAL_USDT AVG_ENTRY</b> (urutan sama dgn kolom tabel). TIDAK ada transaksi ke Bitget — cuma dicatat di bot. Contoh: <code>INJUSDT 177.88 7.976502</code></div>
+    <textarea id="import-text" rows="8" style="width:100%;font-family:var(--mono);font-size:12px;border:1px solid var(--border);border-radius:var(--radius);padding:8px;background:var(--bg)" placeholder="INJUSDT 177.88 7.976502&#10;XPLUSDT 170.00 0.111079"></textarea>
+    <div style="margin-top:8px"><button class="btn primary" onclick="doImportPositions()">Import Sekarang</button></div>
   </div>
   <div class="table-wrap"><table>
     <thead><tr><th>Symbol</th><th>Total USDT</th><th>Avg Entry</th><th>Now</th><th>PnL % (net fee)</th><th>PnL USDT (net fee)</th><th>Entry ke</th><th>SL</th><th>Trailing</th><th>Action</th></tr></thead>
@@ -564,7 +570,7 @@ function renderPositions(positions) {
       <td style="color:var(--${cls})" ${pnlTitle}>${sign}${p.pnlPct?.toFixed(2) ?? '—'}%</td>
       <td style="color:var(--${cls})" ${pnlTitle}>${p.pnlUsdt != null ? (sign + p.pnlUsdt.toFixed(2) + ' USDT') : '—'}</td>
       <td>${p.entries.length}</td>
-      <td style="color:var(--red)">${p.slPrice?.toFixed(6) ?? '—'}</td>
+      <td style="color:var(--red)">${p.slOverride?.type === 'off' ? 'off' : (p.slPrice?.toFixed(6) ?? '—')}${p.slOverride ? '<br><span class="hold-tag">manual</span>' : ''}<br><button class="btn ghost small" onclick="doEditPositionSl('${sym}', ${p.currentPrice ?? 'null'})" title="Atur harga Stop Loss posisi ini">✎ SL</button></td>
       <td>${trailingCell}</td>
       <td>
         <div class="action-cell">
@@ -601,6 +607,44 @@ async function doAddPosition() {
 function promptAddPosition(sym) {
   document.getElementById('posSymbol').value = sym;
   document.getElementById('posBudget').focus();
+}
+
+function toggleImportBox() {
+  const b = document.getElementById('import-box');
+  b.style.display = b.style.display === 'none' ? 'block' : 'none';
+}
+
+async function doImportPositions() {
+  const lines = document.getElementById('import-text').value.split('\n').map(l => l.trim()).filter(Boolean);
+  const items = [];
+  for (const l of lines) {
+    const [symbol, totalUsdt, avgPrice] = l.split(/[\s,;]+/);
+    if (!symbol || !(parseFloat(totalUsdt) > 0) || !(parseFloat(avgPrice) > 0)) return alert(`Baris tidak valid: "${l}"\nFormat: SYMBOL TOTAL_USDT AVG_ENTRY`);
+    items.push({ symbol, totalUsdt, avgPrice });
+  }
+  if (!items.length) return alert('Belum ada data');
+  if (!confirm(`Import ${items.length} posisi ke Manual Position?\n\nTIDAK ada transaksi ke Bitget — cuma dicatat di bot. Pastikan koinnya memang sudah ada di wallet Bitget kamu.`)) return;
+  const res = await apiPost('/api/position/import', { positions: items });
+  const ok = (res.results || []).filter(r => r.ok).length;
+  const failed = (res.results || []).filter(r => !r.ok).map(r => `${r.symbol}: ${r.error}`);
+  alert(`✅ ${ok} posisi berhasil di-import.` + (failed.length ? `\n\n❌ Gagal:\n${failed.join('\n')}` : ''));
+  if (ok) { document.getElementById('import-text').value = failed.length ? document.getElementById('import-text').value : ''; refreshAll(); }
+}
+
+async function doEditPositionSl(sym, curPrice) {
+  const raw = prompt(`Atur Stop Loss ${sym}\n\nHarga sekarang: ${curPrice ?? '—'}\nIsi HARGA SL (harus di bawah harga sekarang).\nKetik "off" = matikan SL, "reset" = balik ke persen default dari Config.`);
+  if (raw === null) return;
+  const v = raw.trim().toLowerCase();
+  let body;
+  if (v === 'off' || v === 'reset') body = { symbol: sym, mode: v };
+  else {
+    const price = parseFloat(v.replace(',', '.'));
+    if (!(price > 0)) return alert('Harga tidak valid');
+    body = { symbol: sym, mode: 'price', price };
+  }
+  const res = await apiPost('/api/position/set-sl', body);
+  alert(res.ok ? `✅ SL ${sym} sekarang: ${res.position.slPrice ?? 'off'}` : '❌ ' + res.error);
+  if (res.ok) refreshAll();
 }
 
 async function doClosePosition(sym) {
